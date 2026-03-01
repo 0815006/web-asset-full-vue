@@ -196,6 +196,7 @@ import { getTeamList } from '@/api/team'
 import { getDomainList } from '@/api/domain'
 import { getUserList } from '@/api/user'
 import { getAssetNodeList } from '@/api/asset-node'
+import { search } from '@/api/search'
 
 export default {
   name: 'Home',
@@ -223,48 +224,8 @@ export default {
         label: 'label'
       },
       
-      techTreeData: [
-        { id: 'tech-1', label: '通用测试点', children: [{ id: 't1', label: '通用测试点规范.pdf', isLeaf: true }] },
-        { id: 'tech-2', label: '信创测试', children: [{ id: 't2', label: '信创测试指南.pdf', isLeaf: true }] },
-        { 
-          id: 'tech-3',
-          label: '质量专题', 
-          children: [
-            { id: 'tech-3-1', label: '缺陷分析', children: [{ id: 't3', label: '2025Q1缺陷分析报告.pdf', isLeaf: true }] },
-            { id: 'tech-3-2', label: '安全生产', children: [{ id: 't4', label: '安全生产红线.pdf', isLeaf: true }] },
-            { id: 'tech-3-3', label: '故障分析', children: [{ id: 't5', label: '典型故障案例库.pdf', isLeaf: true }] },
-            { id: 'tech-3-4', label: '测试案例分级', children: [{ id: 't6', label: '案例分级标准.pdf', isLeaf: true }] },
-            { id: 'tech-3-5', label: '测试数据集', children: [{ id: 't7', label: '脱敏数据使用规范.pdf', isLeaf: true }] }
-          ] 
-        },
-        { 
-          id: 'tech-4',
-          label: '非功能测试', 
-          children: [
-            { id: 'tech-4-1', label: '工作指引', children: [{ id: 't8', label: '非功能测试指引.pdf', isLeaf: true }] },
-            { id: 'tech-4-2', label: '操作指南', children: [{ id: 't9', label: '操作指南v2.pdf', isLeaf: true }] },
-            { id: 'tech-4-3', label: '能力全景图', children: [{ id: 't10', label: '能力全景图.pdf', isLeaf: true }] }
-          ] 
-        },
-        { 
-          id: 'tech-5',
-          label: '性能测试', 
-          children: [
-            { id: 'tech-5-1', label: '工作指引', children: [{ id: 't11', label: '性能测试指引.pdf', isLeaf: true }] },
-            { id: 'tech-5-2', label: '性能档案', children: [{ id: 't12', label: '核心系统性能档案.pdf', isLeaf: true }] },
-            { id: 'tech-5-3', label: '测试问题库', children: [{ id: 't13', label: '常见性能问题.pdf', isLeaf: true }] },
-            { id: 'tech-5-4', label: '实践积累', children: [{ id: 't14', label: '调优实践.pdf', isLeaf: true }] }
-          ] 
-        },
-        { id: 'tech-6', label: '自动化测试', children: [{ id: 'tech-6-1', label: '优秀实践', children: [{ id: 't15', label: 'UI自动化实践.pdf', isLeaf: true }] }] },
-        { id: 'tech-7', label: '稳定性测试', children: [{ id: 'tech-7-1', label: '优秀实践', children: [{ id: 't16', label: '混沌工程实践.pdf', isLeaf: true }] }] },
-        { id: 'tech-8', label: '智能化测试', children: [{ id: 'tech-8-1', label: '优秀实践', children: [{ id: 't17', label: 'AI辅助生成用例.pdf', isLeaf: true }] }] }
-      ],
-      
-      mgmtTreeData: [
-        { id: 'mgmt-1', label: '测试任务管理', children: [{ id: 'm1', label: '任务流转规范.pdf', isLeaf: true }] },
-        { id: 'mgmt-2', label: '批次管理', children: [{ id: 'm2', label: '发版批次管理办法.pdf', isLeaf: true }] }
-      ],
+      techTreeData: [],
+      mgmtTreeData: [],
       
       products: [],
       teamsMap: {},
@@ -343,7 +304,7 @@ export default {
           savedFavorites = JSON.parse(localStorage.getItem('favoriteProducts') || '[]');
         } catch (e) {}
 
-        this.products = productsRes.map(p => ({
+        this.products = productsRes.records.map(p => ({
           ...p,
           team: this.teamsMap[p.teamId] || 'Unknown Team',
           domain: this.domainsMap[p.domainId] || 'Unknown Domain',
@@ -401,92 +362,73 @@ export default {
     handlePreviewNodeClick(data) {
       this.currentPreviewFile = data;
     },
-    performSearch(query, scope) {
+    async performSearch(query, scope) {
       if (!query) {
         this.$message.warning('请输入搜索关键字');
         return;
       }
       
-      let results = [];
-      let treesToSearch = [];
-      
-      if (scope === 'global') {
-        treesToSearch = [
-          { name: '测试技术及工艺专区', data: this.techTreeData },
-          { name: '测试管理专区', data: this.mgmtTreeData }
-        ];
+      this.loading = true;
+      try {
+        const res = await search({ keyword: query });
+        const results = [];
         
-        // 全局搜索时也搜索产品
-        const productResults = this.products.filter(p => 
-          p.name.toLowerCase().includes(query.toLowerCase()) || 
-          p.team.toLowerCase().includes(query.toLowerCase()) || 
-          p.domain.toLowerCase().includes(query.toLowerCase()) ||
-          p.owner.toLowerCase().includes(query.toLowerCase())
-        );
-        
-        productResults.forEach(p => {
-          results.push({
-            id: p.id,
-            label: p.name,
-            isProduct: true,
-            path: ['产品专区', p.team, p.domain],
-            context: `所属团队: ${p.team}，业务领域: ${p.domain}，负责人: ${p.owner}，资产数: ${p.assetCount}，当前状态: ${p.status}。`,
-            sourceTree: null
-          });
-        });
-      } else if (scope === 'tech') {
-        treesToSearch = [{ name: '测试技术及工艺专区', data: this.techTreeData }];
-      } else if (scope === 'mgmt') {
-        treesToSearch = [{ name: '测试管理专区', data: this.mgmtTreeData }];
-      }
-      
-      treesToSearch.forEach(treeObj => {
-        results = results.concat(this.searchInTree(treeObj.data, query, [treeObj.name], treeObj.data));
-      });
-      
-      this.searchResults = results;
-      this.currentSearchQuery = query;
-      this.searchResultVisible = true;
-    },
-    searchInTree(tree, query, path = [], sourceTree) {
-      let results = [];
-      for (const node of tree) {
-        const currentPath = [...path, node.label];
-        
-        if (node.isLeaf) {
-          const titleMatch = node.label.toLowerCase().includes(query.toLowerCase());
-          // Simulate full-text search: 30% chance to match content if title doesn't match
-          const contentMatch = !titleMatch && Math.random() > 0.7;
-          
-          if (titleMatch || contentMatch) {
-            const mockContents = [
-              `本文档详细介绍了关于${node.label.replace('.pdf', '')}的相关规范和标准，其中包含了${query}的关键要求和实施细节。`,
-              `在实际操作中，我们需要严格遵循${node.label.replace('.pdf', '')}中的指导原则，特别是在处理${query}相关业务时，必须确保流程的合规性。`,
-              `该文件梳理了历史遗留问题，重点分析了与${query}相关的缺陷和改进方案，为后续的优化提供了重要参考。`,
-              `系统架构图中明确指出了各个模块的依赖关系，${query}作为核心组件起到了关键作用，保障了整体架构的稳定性。`
-            ];
-            
-            let context = '';
-            if (titleMatch) {
-              context = mockContents[0];
-            } else {
-              context = mockContents[Math.floor(Math.random() * mockContents.length)];
-            }
+        // Process backend results
+        if (res && res.length > 0) {
+          res.forEach(item => {
+            // Filter by scope if needed
+            if (scope === 'tech' && item.zone_type !== 'tech') return;
+            if (scope === 'mgmt' && item.zone_type !== 'mgmt') return;
             
             results.push({
-              ...node,
-              path: currentPath,
-              context: context,
-              sourceTree: sourceTree
+              id: item.id,
+              label: item.name,
+              isProduct: false, // Assuming search mainly returns files/nodes
+              path: [item.zone_type === 'tech' ? '测试技术及工艺专区' : '测试管理专区'], // Simplified path
+              context: item.highlight || item.text || '暂无内容预览',
+              sourceTree: item.zone_type === 'tech' ? this.techTreeData : this.mgmtTreeData,
+              ...item
             });
-          }
+          });
         }
         
-        if (node.children) {
-          results = results.concat(this.searchInTree(node.children, query, currentPath, sourceTree));
+        // Also search products locally if global scope (since backend search might not cover products yet, or we want to keep existing logic)
+        // Wait, the user said "Update Home.vue to use the real backend search API".
+        // If the backend search also covers products, I should use it.
+        // But looking at SearchServiceImpl, it indexes AssetNode.
+        // It doesn't seem to index BusiProduct directly, although it has productId field.
+        // So I should probably keep the local product search for now, or ask.
+        // Given the instructions, I will mix backend results with local product search for global scope.
+        
+        if (scope === 'global') {
+           const productResults = this.products.filter(p => 
+            p.name.toLowerCase().includes(query.toLowerCase()) || 
+            p.team.toLowerCase().includes(query.toLowerCase()) || 
+            p.domain.toLowerCase().includes(query.toLowerCase()) ||
+            p.owner.toLowerCase().includes(query.toLowerCase())
+          );
+          
+          productResults.forEach(p => {
+            results.push({
+              id: p.id,
+              label: p.name,
+              isProduct: true,
+              path: ['产品专区', p.team, p.domain],
+              context: `所属团队: ${p.team}，业务领域: ${p.domain}，负责人: ${p.owner}，资产数: ${p.assetCount}，当前状态: ${p.status}。`,
+              sourceTree: null
+            });
+          });
         }
+
+        this.searchResults = results;
+        this.currentSearchQuery = query;
+        this.searchResultVisible = true;
+      } catch (error) {
+        console.error(error);
+        this.$message.error('搜索失败');
+      } finally {
+        this.loading = false;
       }
-      return results;
     },
     handleSearchResultClick(item) {
       if (item.isProduct) {

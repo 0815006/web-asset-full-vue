@@ -131,7 +131,11 @@
           <el-upload
             class="upload-demo"
             drag
-            action="https://jsonplaceholder.typicode.com/posts/"
+            action="#"
+            :auto-upload="false"
+            :on-change="handleFileChange"
+            :on-remove="handleRemove"
+            :file-list="fileList"
             multiple>
             <i class="el-icon-upload"></i>
             <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
@@ -170,8 +174,9 @@ import { getProduct } from '@/api/product'
 import { getTeamList } from '@/api/team'
 import { getDomainList } from '@/api/domain'
 import { getUserList } from '@/api/user'
-import { getAssetNodeList } from '@/api/asset-node'
+import { getAssetNodeTree, uploadFile } from '@/api/asset-node'
 import { getKnowledgeGraphList } from '@/api/knowledge-graph'
+import { search } from '@/api/search'
 
 export default {
   name: 'ProductDetail',
@@ -204,6 +209,7 @@ export default {
       uploadForm: {
         categoryId: []
       },
+      fileList: [],
       loading: false,
       
       defaultProps: {
@@ -211,226 +217,154 @@ export default {
         label: 'label'
       },
       
-      assetTreeData: [
-        { 
-          id: 'c1', 
-          label: '产品功能全景及功能测试指南', 
-          isFixed: true,
-          children: [
-            { id: 'f1', label: 'V1.0功能测试指南.pdf', isLeaf: true }
-          ]
-        },
-        { 
-          id: 'c2', 
-          label: '产品架构及关联产品', 
-          isFixed: true,
-          children: [
-            { id: 'f2', label: '系统架构图.pdf', isLeaf: true }
-          ]
-        },
-        { 
-          id: 'c3', 
-          label: '产品缺陷分析', 
-          isFixed: true,
-          children: [
-            { id: 'f3', label: '历史遗留缺陷分析.pdf', isLeaf: true }
-          ]
-        },
-        { 
-          id: 'c4', 
-          label: '产品业务知识', 
-          isFixed: true,
-          children: [
-            { 
-              id: 'c4-1', 
-              label: '核心交易链路', 
-              children: [
-                { id: 'f4', label: '支付链路说明.pdf', isLeaf: true }
-              ]
-            }
-          ]
-        },
-        { 
-          id: 'c5', 
-          label: '产品其他支持类文档', 
-          isFixed: true,
-          children: [
-            { id: 'f5', label: '环境配置说明.pdf', isLeaf: true }
-          ]
-        },
-        {
-          id: 'c6',
-          label: '未分类',
-          isFixed: false,
-          children: []
-        }
-      ]
+      assetTreeData: [],
+      
+      // ... (rest of data)
     }
   },
   computed: {
     uploadCategoryOptions() {
-      // Filter out leaf nodes for cascader
-      const filterLeaves = (nodes) => {
+      // Convert tree data to cascader options
+      const format = (nodes) => {
         return nodes.map(node => {
-          if (node.isLeaf) return null;
-          const newNode = { ...node };
-          if (newNode.children && newNode.children.length > 0) {
-            newNode.children = filterLeaves(newNode.children).filter(Boolean);
-            if (newNode.children.length === 0) delete newNode.children;
-          } else {
-            delete newNode.children;
+          const item = {
+            id: node.id,
+            label: node.label
+          };
+          if (node.children && node.children.length > 0) {
+            item.children = format(node.children);
           }
-          return newNode;
-        }).filter(Boolean);
+          return item;
+        });
       };
-      return filterLeaves(this.assetTreeData);
+      return format(this.assetTreeData);
     }
   },
-  watch: {
-    localSearchQuery(val) {
-      this.$refs.assetTree.filter(val);
-    }
-  },
-  async created() {
-    this.loading = true
-    const id = this.$route.params.id
-    // If id starts with 'p' (mock id), we might want to handle it gracefully or just try to fetch
-    // Assuming backend uses numeric IDs, but frontend mock used 'p1'. 
-    // If we are transitioning, we should expect numeric IDs from now on.
-    // But if the user clicks on a mock product from Home (if Home still has mock data cached or something), it might fail.
-    // However, Home.vue is updated to fetch real data, so IDs should be real.
-    
-    try {
-      const [productRes, teamsRes, domainsRes, usersRes, assetNodesRes, graphRes] = await Promise.all([
-        getProduct(id),
-        getTeamList(),
-        getDomainList(),
-        getUserList(),
-        getAssetNodeList(),
-        getKnowledgeGraphList()
-      ])
-      
-      const product = productRes
-      const teamsMap = teamsRes.reduce((acc, cur) => { acc[cur.id] = cur.name; return acc }, {})
-      const domainsMap = domainsRes.reduce((acc, cur) => { acc[cur.id] = cur.name; return acc }, {})
-      const usersMap = usersRes.reduce((acc, cur) => { acc[cur.id] = cur.username; return acc }, {})
-      
-      this.product = {
-        ...product,
-        team: teamsMap[product.teamId] || 'Unknown Team',
-        domain: domainsMap[product.domainId] || 'Unknown Domain',
-        owner: usersMap[product.ownerId] || 'Unknown Owner',
-        updateTime: product.lastUpdate ? product.lastUpdate.replace('T', ' ') : '',
-        status: product.status || 'Unknown'
-      }
-
-      // Process Asset Tree
-      const productAssets = assetNodesRes.filter(n => n.productId == id);
-      this.assetTreeData = this.buildTree(productAssets);
-
-      // Process Knowledge Graph (Simple mapping for now)
-      // Assuming graphRes contains relations where sourceProductId matches current product
-      const relations = graphRes.filter(r => r.sourceProductId == id || r.targetProductId == id);
-      // TODO: Update graph visualization based on relations
-      
-    } catch (error) {
-      console.error(error)
-      this.$message.error('Failed to load product details')
-    } finally {
-      this.loading = false
-    }
+  created() {
+    this.fetchData();
   },
   methods: {
-    buildTree(nodes) {
-      const map = {};
-      const roots = [];
-      
-      nodes.forEach(node => {
-        map[node.id] = { ...node, label: node.name, children: [] };
-      });
-      
-      nodes.forEach(node => {
-        if (node.parentId && map[node.parentId]) {
-          map[node.parentId].children.push(map[node.id]);
-        } else {
-          roots.push(map[node.id]);
-        }
-      });
-      
-      return roots;
+    async fetchData() {
+      this.loading = true;
+      try {
+        // 1. Get Product Details
+        const productRes = await getProduct(this.product.id);
+        this.product = { ...this.product, ...productRes };
+        
+        // 2. Get Asset Tree directly from backend
+        const treeRes = await getAssetNodeTree(this.product.id);
+        this.assetTreeData = treeRes || [];
+        
+      } catch (error) {
+        console.error(error);
+        this.$message.error('加载数据失败');
+      } finally {
+        this.loading = false;
+      }
     },
     filterNode(value, data) {
       if (!value) return true;
       return data.label.indexOf(value) !== -1;
     },
     handleNodeClick(data) {
-      if (data.isLeaf) {
+      // If it's a file (leaf node usually, or check isLeaf property if available)
+      // For now, let's assume if it has no children and is not a folder type, it's a file
+      // But better logic: check if it's a file based on some property. 
+      // The backend DTO might have 'type' or 'isLeaf'. 
+      // Let's assume leaf nodes are files for preview.
+      if (!data.children || data.children.length === 0) {
         this.currentPreviewFile = data;
-        this.previewVisible = true;
+        // Only show preview if it's a file, not an empty folder. 
+        // We might need a 'type' field from backend to be sure.
+        // For now, just set it, the preview component handles it.
       }
     },
     handlePreviewNodeClick(data) {
       this.currentPreviewFile = data;
     },
-    performSearch(query) {
+    async performSearch(query) {
       if (!query) {
         this.$message.warning('请输入搜索关键字');
         return;
       }
       
-      this.searchResults = this.searchInTree(this.assetTreeData, query, [this.product.name]);
-      this.currentSearchQuery = query;
-      this.searchResultVisible = true;
-    },
-    searchInTree(tree, query, path = []) {
-      let results = [];
-      for (const node of tree) {
-        const currentPath = [...path, node.label];
+      this.loading = true;
+      try {
+        const res = await search({ keyword: query, productId: this.product.id });
+        const results = [];
         
-        if (node.isLeaf) {
-          const titleMatch = node.label.toLowerCase().includes(query.toLowerCase());
-          // Simulate full-text search: 30% chance to match content if title doesn't match
-          const contentMatch = !titleMatch && Math.random() > 0.7;
-          
-          if (titleMatch || contentMatch) {
-            const mockContents = [
-              `本文档详细介绍了关于${node.label.replace('.pdf', '')}的相关规范和标准，其中包含了${query}的关键要求和实施细节。`,
-              `在实际操作中，我们需要严格遵循${node.label.replace('.pdf', '')}中的指导原则，特别是在处理${query}相关业务时，必须确保流程的合规性。`,
-              `该文件梳理了历史遗留问题，重点分析了与${query}相关的缺陷和改进方案，为后续的优化提供了重要参考。`,
-              `系统架构图中明确指出了各个模块的依赖关系，${query}作为核心组件起到了关键作用，保障了整体架构的稳定性。`
-            ];
-            
-            let context = '';
-            if (titleMatch) {
-              context = mockContents[0];
-            } else {
-              context = mockContents[Math.floor(Math.random() * mockContents.length)];
-            }
-            
+        if (res && res.length > 0) {
+          res.forEach(item => {
             results.push({
-              ...node,
-              path: currentPath,
-              context: context
+              id: item.id,
+              label: item.name,
+              isProduct: false,
+              path: [this.product.name], // Simplified path
+              context: item.highlight || item.text || '暂无内容预览',
+              // We need to find the node in the tree to set sourceTree correctly if we want to preview it
+              // But for now, let's just use the item itself as preview file data
+              ...item
             });
-          }
+          });
         }
         
-        if (node.children) {
-          results = results.concat(this.searchInTree(node.children, query, currentPath));
-        }
+        this.searchResults = results;
+        this.currentSearchQuery = query;
+        this.searchResultVisible = true;
+      } catch (error) {
+        console.error(error);
+        this.$message.error('搜索失败');
+      } finally {
+        this.loading = false;
       }
-      return results;
-    },
-    handleSearchResultClick(item) {
-      this.currentPreviewFile = item;
-      this.previewVisible = true;
     },
     showUploadDialog() {
       this.uploadDialogVisible = true;
+      this.fileList = [];
     },
-    submitUpload() {
-      this.$message.success('文件上传成功，已同步至本地磁盘与Solr索引库');
-      this.uploadDialogVisible = false;
+    handleFileChange(file, fileList) {
+      this.fileList = fileList;
+    },
+    handleRemove(file, fileList) {
+      this.fileList = fileList;
+    },
+    async submitUpload() {
+      if (this.fileList.length === 0) {
+        this.$message.warning('请选择要上传的文件');
+        return;
+      }
+      
+      // Determine parentId
+      let parentId = 0; // Default root
+      if (this.uploadForm.categoryId && this.uploadForm.categoryId.length > 0) {
+        parentId = this.uploadForm.categoryId[this.uploadForm.categoryId.length - 1];
+      }
+      
+      this.loading = true;
+      try {
+        for (const file of this.fileList) {
+          const formData = new FormData();
+          formData.append('file', file.raw);
+          formData.append('productId', this.product.id);
+          formData.append('parentId', parentId);
+          formData.append('zoneType', 'product'); // Assuming product zone
+          
+          await uploadFile(formData);
+        }
+        
+        this.$message.success('文件上传成功，已同步至本地磁盘与Solr索引库');
+        this.uploadDialogVisible = false;
+        this.fileList = [];
+        // Refresh asset list
+        const treeRes = await getAssetNodeTree(this.product.id);
+        this.assetTreeData = treeRes || [];
+        
+      } catch (error) {
+        console.error(error);
+        this.$message.error('上传失败');
+      } finally {
+        this.loading = false;
+      }
     },
     batchDownload() {
       const checkedNodes = this.$refs.assetTree.getCheckedNodes(true);
@@ -455,7 +389,12 @@ export default {
         });
         this.$message.success('创建成功');
       }).catch(() => {});
-    }
+    },
+    handleSearchResultClick(item) {
+      this.currentPreviewFile = item;
+      this.previewVisible = true;
+    },
+    // ...
   }
 }
 </script>

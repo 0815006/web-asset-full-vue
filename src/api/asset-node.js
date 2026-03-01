@@ -7,6 +7,13 @@ export function getAssetNodeList() {
   })
 }
 
+export function getAssetNodeTree(productId) {
+  return request({
+    url: `/asset-node/tree/${productId}`,
+    method: 'get'
+  })
+}
+
 export function saveAssetNode(data) {
   return request({
     url: '/asset-node/save',
@@ -27,5 +34,14 @@ export function deleteAssetNode(id) {
   return request({
     url: `/asset-node/delete/${id}`,
     method: 'delete'
+  })
+}
+
+export function uploadFile(data) {
+  return request({
+    url: '/asset-node/upload',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
   })
 }
