@@ -18,155 +18,96 @@
     </div>
 
     <div class="home-container">
+      <div class="layout-controls" style="margin-bottom: 20px; text-align: right;">
+        <el-radio-group v-model="layoutMode" size="small">
+          <el-radio-button label="vertical"><i class="el-icon-s-grid"></i> 瀑布流布局</el-radio-button>
+          <el-radio-button label="tabs"><i class="el-icon-menu"></i> 标签页布局</el-radio-button>
+        </el-radio-group>
+      </div>
+
       <div class="main-content">
-      <!-- 测试技术及工艺专区 -->
-      <el-card class="zone-card tech-zone">
-        <div slot="header" class="zone-header">
-          <span>测试技术及工艺专区</span>
-          <el-input
-            placeholder="专区内搜索..."
-            v-model="techSearchQuery"
-            size="small"
-            style="width: 200px;"
-            @keyup.enter.native="performSearch(techSearchQuery, 'tech')"
-            clearable>
-            <el-button slot="append" icon="el-icon-search" @click="performSearch(techSearchQuery, 'tech')"></el-button>
-          </el-input>
-        </div>
-        <el-tree
-          :data="techTreeData"
-          :props="defaultProps"
-          :filter-node-method="filterNode"
-          ref="techTree"
-          @node-click="handleNodeClick"
-          class="custom-tree">
-          <span class="custom-tree-node" slot-scope="{ node, data }">
-            <span>
-              <i :class="data.children ? 'el-icon-folder' : 'el-icon-document'"></i>
-              {{ node.label }}
-            </span>
-          </span>
-        </el-tree>
-      </el-card>
-
-      <!-- 产品专区 -->
-      <el-card class="zone-card product-zone">
-        <div slot="header" class="zone-header">
-          <span>产品专区</span>
-          <div class="product-controls">
-            <el-radio-group v-model="productFilter" size="small">
-              <el-radio-button label="all">全部产品</el-radio-button>
-              <el-radio-button label="favorites" :disabled="favoriteCount === 0">我的收藏 ({{ favoriteCount }})</el-radio-button>
-            </el-radio-group>
-            
-            <el-radio-group v-model="viewMode" size="small" style="margin-left: 20px;">
-              <el-radio-button label="tile"><i class="el-icon-menu"></i> 平铺</el-radio-button>
-              <el-radio-button label="team"><i class="el-icon-s-custom"></i> 按团队</el-radio-button>
-              <el-radio-button label="domain"><i class="el-icon-s-data"></i> 按领域</el-radio-button>
-            </el-radio-group>
-          </div>
-        </div>
-
-        <div v-if="viewMode === 'tile'" class="product-grid">
-          <div v-for="product in filteredProducts" :key="product.id" class="product-card" @click="goToProduct(product.id)">
-            <div class="product-card-header">
-              <span class="product-name">{{ product.name }}</span>
-              <i 
-                :class="product.isFavorite ? 'el-icon-star-on favorite-icon active' : 'el-icon-star-off favorite-icon'"
-                @click.stop="toggleFavorite(product)">
-              </i>
+        <!-- 标签页布局 -->
+        <el-tabs v-if="layoutMode === 'tabs'" v-model="activeTab" type="border-card">
+          <el-tab-pane label="测试技术及工艺专区" name="tech">
+            <div class="zone-wrapper tech-zone">
+               <tech-zone-content 
+                 :search-query="techSearchQuery" 
+                 :tree-data="techTreeData" 
+                 :default-props="defaultProps"
+                 @search="performSearch($event, 'tech')"
+                 @node-click="handleNodeClick"
+                 @update:searchQuery="techSearchQuery = $event"
+                 ref="techTreeTab"
+               />
             </div>
-            <div class="product-card-body">
-              <p><strong>团队:</strong> {{ product.team }}</p>
-              <p><strong>领域:</strong> {{ product.domain }}</p>
-              <p><strong>负责人:</strong> {{ product.owner }}</p>
-              <p><strong>资产数:</strong> {{ product.assetCount }}</p>
-              <p><strong>更新时间:</strong> {{ product.updateTime }}</p>
-            </div>
-            <div class="product-card-footer">
-              <el-tag size="mini" :type="product.status === '活跃' ? 'success' : 'info'">{{ product.status }}</el-tag>
-            </div>
-          </div>
-        </div>
+          </el-tab-pane>
+          <el-tab-pane label="产品专区" name="product">
+             <product-zone-content
+                :products="products"
+                :filtered-products="filteredProducts"
+                :grouped-by-team="groupedByTeam"
+                :grouped-by-domain="groupedByDomain"
+                :favorite-count="favoriteCount"
+                :view-mode.sync="viewMode"
+                :product-filter.sync="productFilter"
+                @toggle-favorite="toggleFavorite"
+                @go-to-product="goToProduct"
+             />
+          </el-tab-pane>
+          <el-tab-pane label="测试管理专区" name="mgmt">
+             <mgmt-zone-content
+                 :search-query="mgmtSearchQuery"
+                 :tree-data="mgmtTreeData"
+                 :default-props="defaultProps"
+                 @search="performSearch($event, 'mgmt')"
+                 @node-click="handleNodeClick"
+                 @update:searchQuery="mgmtSearchQuery = $event"
+                 ref="mgmtTreeTab"
+             />
+          </el-tab-pane>
+        </el-tabs>
 
-        <div v-else-if="viewMode === 'team'" class="grouped-view">
-          <div v-for="(group, teamName) in groupedByTeam" :key="teamName" class="group-section">
-            <h3 class="group-title">{{ teamName }}</h3>
-            <div class="product-grid">
-              <div v-for="product in group" :key="product.id" class="product-card" @click="goToProduct(product.id)">
-                <!-- Same card content -->
-                <div class="product-card-header">
-                  <span class="product-name">{{ product.name }}</span>
-                  <i 
-                    :class="product.isFavorite ? 'el-icon-star-on favorite-icon active' : 'el-icon-star-off favorite-icon'"
-                    @click.stop="toggleFavorite(product)">
-                  </i>
-                </div>
-                <div class="product-card-body">
-                  <p><strong>领域:</strong> {{ product.domain }}</p>
-                  <p><strong>负责人:</strong> {{ product.owner }}</p>
-                  <p><strong>资产数:</strong> {{ product.assetCount }}</p>
-                  <p><strong>更新时间:</strong> {{ product.updateTime }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- 瀑布流布局 (原布局) -->
+        <div v-else class="vertical-layout">
+           <el-card class="zone-card tech-zone">
+              <tech-zone-content 
+                 :search-query="techSearchQuery" 
+                 :tree-data="techTreeData" 
+                 :default-props="defaultProps"
+                 @search="performSearch($event, 'tech')"
+                 @node-click="handleNodeClick"
+                 @update:searchQuery="techSearchQuery = $event"
+                 ref="techTreeVertical"
+               />
+           </el-card>
 
-        <div v-else-if="viewMode === 'domain'" class="grouped-view">
-          <div v-for="(group, domainName) in groupedByDomain" :key="domainName" class="group-section">
-            <h3 class="group-title">{{ domainName }}</h3>
-            <div class="product-grid">
-              <div v-for="product in group" :key="product.id" class="product-card" @click="goToProduct(product.id)">
-                <!-- Same card content -->
-                <div class="product-card-header">
-                  <span class="product-name">{{ product.name }}</span>
-                  <i 
-                    :class="product.isFavorite ? 'el-icon-star-on favorite-icon active' : 'el-icon-star-off favorite-icon'"
-                    @click.stop="toggleFavorite(product)">
-                  </i>
-                </div>
-                <div class="product-card-body">
-                  <p><strong>团队:</strong> {{ product.team }}</p>
-                  <p><strong>负责人:</strong> {{ product.owner }}</p>
-                  <p><strong>资产数:</strong> {{ product.assetCount }}</p>
-                  <p><strong>更新时间:</strong> {{ product.updateTime }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </el-card>
+           <el-card class="zone-card product-zone">
+              <product-zone-content
+                :products="products"
+                :filtered-products="filteredProducts"
+                :grouped-by-team="groupedByTeam"
+                :grouped-by-domain="groupedByDomain"
+                :favorite-count="favoriteCount"
+                :view-mode.sync="viewMode"
+                :product-filter.sync="productFilter"
+                @toggle-favorite="toggleFavorite"
+                @go-to-product="goToProduct"
+             />
+           </el-card>
 
-      <!-- 测试管理专区 -->
-      <el-card class="zone-card mgmt-zone">
-        <div slot="header" class="zone-header">
-          <span>测试管理专区</span>
-          <el-input
-            placeholder="专区内搜索..."
-            v-model="mgmtSearchQuery"
-            size="small"
-            style="width: 200px;"
-            @keyup.enter.native="performSearch(mgmtSearchQuery, 'mgmt')"
-            clearable>
-            <el-button slot="append" icon="el-icon-search" @click="performSearch(mgmtSearchQuery, 'mgmt')"></el-button>
-          </el-input>
+           <el-card class="zone-card mgmt-zone">
+              <mgmt-zone-content
+                 :search-query="mgmtSearchQuery"
+                 :tree-data="mgmtTreeData"
+                 :default-props="defaultProps"
+                 @search="performSearch($event, 'mgmt')"
+                 @node-click="handleNodeClick"
+                 @update:searchQuery="mgmtSearchQuery = $event"
+                 ref="mgmtTreeVertical"
+             />
+           </el-card>
         </div>
-        <el-tree
-          :data="mgmtTreeData"
-          :props="defaultProps"
-          :filter-node-method="filterNode"
-          ref="mgmtTree"
-          @node-click="handleNodeClick"
-          class="custom-tree">
-          <span class="custom-tree-node" slot-scope="{ node, data }">
-            <span>
-              <i :class="data.children ? 'el-icon-folder' : 'el-icon-document'"></i>
-              {{ node.label }}
-            </span>
-          </span>
-        </el-tree>
-      </el-card>
+      </div>
     </div>
 
     <!-- 超级预览弹窗 -->
@@ -185,24 +126,26 @@
       @item-click="handleSearchResultClick">
     </search-result-dialog>
   </div>
-  </div>
 </template>
 
 <script>
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
-import { getProductList } from '@/api/product'
-import { getTeamList } from '@/api/team'
-import { getDomainList } from '@/api/domain'
-import { getUserList } from '@/api/user'
-import { getAssetNodeList } from '@/api/asset-node'
+import TechZoneContent from '../components/TechZoneContent.vue'
+import ProductZoneContent from '../components/ProductZoneContent.vue'
+import MgmtZoneContent from '../components/MgmtZoneContent.vue'
+import { getProductList, toggleFavorite } from '@/api/product'
+import { getAssetTree } from '@/api/asset-node'
 import { search } from '@/api/search'
 
 export default {
   name: 'Home',
   components: {
     SuperPreview,
-    SearchResultDialog
+    SearchResultDialog,
+    TechZoneContent,
+    ProductZoneContent,
+    MgmtZoneContent
   },
   data() {
     return {
@@ -211,6 +154,8 @@ export default {
       mgmtSearchQuery: '',
       productFilter: 'all',
       viewMode: 'tile',
+      layoutMode: 'tabs', // Default to tabs layout as per PRD
+      activeTab: 'tech',      // Default active tab
       previewVisible: false,
       currentPreviewFile: null,
       currentPreviewTree: [],
@@ -221,51 +166,51 @@ export default {
       
       defaultProps: {
         children: 'children',
-        label: 'label'
+        label: 'fileName', // Changed from label to fileName
+        isLeaf: 'leaf'
       },
       
       techTreeData: [],
       mgmtTreeData: [],
       
       products: [],
-      teamsMap: {},
-      domainsMap: {},
-      usersMap: {},
       loading: false
     }
   },
   computed: {
     favoriteCount() {
-      return this.products.filter(p => p.isFavorite).length;
+      return this.products.filter(p => p.isFavorited).length;
     },
     filteredProducts() {
       let list = this.products;
       if (this.productFilter === 'favorites') {
-        list = list.filter(p => p.isFavorite);
+        list = list.filter(p => p.isFavorited);
       }
       return list;
     },
     groupedByTeam() {
       return this.filteredProducts.reduce((acc, product) => {
-        if (!acc[product.team]) acc[product.team] = [];
-        acc[product.team].push(product);
+        if (!acc[product.teamName]) acc[product.teamName] = [];
+        acc[product.teamName].push(product);
         return acc;
       }, {});
     },
     groupedByDomain() {
       return this.filteredProducts.reduce((acc, product) => {
-        if (!acc[product.domain]) acc[product.domain] = [];
-        acc[product.domain].push(product);
+        if (!acc[product.domainName]) acc[product.domainName] = [];
+        acc[product.domainName].push(product);
         return acc;
       }, {});
     }
   },
   watch: {
     techSearchQuery(val) {
-      this.$refs.techTree.filter(val);
+      this.$refs.techTreeTab && this.$refs.techTreeTab.filter(val);
+      this.$refs.techTreeVertical && this.$refs.techTreeVertical.filter(val);
     },
     mgmtSearchQuery(val) {
-      this.$refs.mgmtTree.filter(val);
+      this.$refs.mgmtTreeTab && this.$refs.mgmtTreeTab.filter(val);
+      this.$refs.mgmtTreeVertical && this.$refs.mgmtTreeVertical.filter(val);
     }
   },
   created() {
@@ -281,38 +226,38 @@ export default {
     async fetchData() {
       this.loading = true
       try {
-        const [teamsRes, domainsRes, usersRes, productsRes, assetNodesRes] = await Promise.all([
-          getTeamList(),
-          getDomainList(),
-          getUserList(),
-          getProductList(),
-          getAssetNodeList()
-        ])
+        // Fetch Products
+        const products = await getProductList();
         
-        this.teamsMap = teamsRes.reduce((acc, cur) => { acc[cur.id] = cur.name; return acc }, {})
-        this.domainsMap = domainsRes.reduce((acc, cur) => { acc[cur.id] = cur.name; return acc }, {})
-        this.usersMap = usersRes.reduce((acc, cur) => { acc[cur.id] = cur.username; return acc }, {})
-        
-        // Process Asset Nodes for Trees
-        const allNodes = assetNodesRes;
-        this.techTreeData = this.buildTree(allNodes.filter(n => n.zoneType === 'tech'));
-        this.mgmtTreeData = this.buildTree(allNodes.filter(n => n.zoneType === 'mgmt'));
-
-        // Restore favorites
-        let savedFavorites = [];
-        try {
-          savedFavorites = JSON.parse(localStorage.getItem('favoriteProducts') || '[]');
-        } catch (e) {}
-
-        this.products = productsRes.records.map(p => ({
+        this.products = (products || []).map(p => ({
           ...p,
-          team: this.teamsMap[p.teamId] || 'Unknown Team',
-          domain: this.domainsMap[p.domainId] || 'Unknown Domain',
-          owner: this.usersMap[p.ownerId] || 'Unknown Owner',
-          updateTime: p.lastUpdate ? p.lastUpdate.replace('T', ' ') : '',
-          isFavorite: savedFavorites.includes(p.id)
-        }))
+          owner: p.ownerName || 'Unknown Owner'
+        }));
+
+        // Fetch Tech Zone Root (Product ID 0, Parent ID 0)
+        const publicRoots = await getAssetTree({ product_id: 0, parent_id: 0 });
         
+        const techRoot = (publicRoots || []).find(n => n.fileName === '测试技术及工艺专区');
+        const mgmtRoot = (publicRoots || []).find(n => n.fileName === '测试管理专区');
+        
+        if (techRoot) {
+           // Fetch children of Tech Root
+           const techChildren = await getAssetTree({ product_id: 0, parent_id: techRoot.id });
+           this.techTreeData = (techChildren || []).map(node => ({
+             ...node,
+             leaf: node.nodeType === 2 || !node.hasChildren
+           }));
+        }
+        
+        if (mgmtRoot) {
+           // Fetch children of Mgmt Root
+           const mgmtChildren = await getAssetTree({ product_id: 0, parent_id: mgmtRoot.id });
+           this.mgmtTreeData = (mgmtChildren || []).map(node => ({
+             ...node,
+             leaf: node.nodeType === 2 || !node.hasChildren
+           }));
+        }
+
       } catch (error) {
         console.error(error)
         this.$message.error('Failed to load data')
@@ -402,19 +347,19 @@ export default {
         
         if (scope === 'global') {
            const productResults = this.products.filter(p => 
-            p.name.toLowerCase().includes(query.toLowerCase()) || 
-            p.team.toLowerCase().includes(query.toLowerCase()) || 
-            p.domain.toLowerCase().includes(query.toLowerCase()) ||
+            p.productName.toLowerCase().includes(query.toLowerCase()) || 
+            p.teamName.toLowerCase().includes(query.toLowerCase()) || 
+            p.domainName.toLowerCase().includes(query.toLowerCase()) ||
             p.owner.toLowerCase().includes(query.toLowerCase())
           );
           
           productResults.forEach(p => {
             results.push({
               id: p.id,
-              label: p.name,
+              label: p.productName,
               isProduct: true,
-              path: ['产品专区', p.team, p.domain],
-              context: `所属团队: ${p.team}，业务领域: ${p.domain}，负责人: ${p.owner}，资产数: ${p.assetCount}，当前状态: ${p.status}。`,
+              path: ['产品专区', p.teamName, p.domainName],
+              context: `所属团队: ${p.teamName}，业务领域: ${p.domainName}，负责人: ${p.owner}，资产数: ${p.assetCount}。`,
               sourceTree: null
             });
           });
@@ -440,10 +385,10 @@ export default {
       }
     },
     toggleFavorite(product) {
-      product.isFavorite = !product.isFavorite;
+      product.isFavorited = !product.isFavorited;
       
       // Save to localStorage
-      const savedFavorites = this.products.filter(p => p.isFavorite).map(p => p.id);
+      const savedFavorites = this.products.filter(p => p.isFavorited).map(p => p.id);
       localStorage.setItem('favoriteProducts', JSON.stringify(savedFavorites));
       
       if (this.favoriteCount === 0) {

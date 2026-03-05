@@ -11,6 +11,14 @@ const service = axios.create({
 service.interceptors.request.use(
   config => {
     // do something before request is sent
+    const token = localStorage.getItem('token')
+    const userId = localStorage.getItem('userId')
+    if (token) {
+       config.headers['Authorization'] = 'Bearer ' + token
+    }
+    if (userId) {
+       config.headers['X-User-Id'] = userId
+    }
     return config
   },
   error => {

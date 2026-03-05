@@ -1,45 +1,70 @@
 import request from '@/utils/request'
 
-export function getAssetNodeList() {
+export function getAssetTree(params) {
   return request({
-    url: '/asset-node/list',
-    method: 'get'
+    url: '/api/assets/tree',
+    method: 'get',
+    params
   })
 }
 
-export function getAssetNodeTree(productId) {
+export function createFolder(data) {
   return request({
-    url: `/asset-node/tree/${productId}`,
-    method: 'get'
-  })
-}
-
-export function saveAssetNode(data) {
-  return request({
-    url: '/asset-node/save',
+    url: '/api/assets/folder',
     method: 'post',
     data
   })
 }
 
-export function updateAssetNode(data) {
+export function renameAsset(id, newName) {
   return request({
-    url: '/asset-node/update',
+    url: `/api/assets/${id}/rename`,
     method: 'put',
-    data
+    data: { new_name: newName }
   })
 }
 
-export function deleteAssetNode(id) {
+export function moveAsset(id, targetParentId) {
   return request({
-    url: `/asset-node/delete/${id}`,
+    url: `/api/assets/${id}/move`,
+    method: 'put',
+    data: { target_parent_id: targetParentId }
+  })
+}
+
+export function deleteAsset(id) {
+  return request({
+    url: `/api/assets/${id}`,
     method: 'delete'
+  })
+}
+
+export function acquireLock(id) {
+  return request({
+    url: `/api/assets/${id}/lock`,
+    method: 'post'
+  })
+}
+
+export function keepAliveLock(id, lockId) {
+  return request({
+    url: `/api/assets/${id}/lock/keepalive`,
+    method: 'put',
+    data: { lock_id: lockId }
+  })
+}
+
+export function unlockAsset(id, lockId) {
+  return request({
+    url: `/api/assets/${id}/unlock`,
+    method: 'post',
+    data: { lock_id: lockId }
   })
 }
 
 export function uploadFile(data) {
   return request({
-    url: '/asset-node/upload',
+    url: '/api/assets/upload',
     method: 'post',
     data,
     headers: { 'Content-Type': 'multipart/form-data' }

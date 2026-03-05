@@ -3,18 +3,53 @@
     <div class="app-header">
       <div class="user-info">
         <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
-        <span class="username">陈东</span>
+        <span class="username">{{ currentUser.realName || '未登录' }}</span>
       </div>
     </div>
-    <div class="app-main">
+    <div class="app-main" v-if="initDone">
       <router-view/>
     </div>
   </div>
 </template>
 
 <script>
+import { login } from '@/api/user'
+
 export default {
-  name: 'App'
+  name: 'App',
+  data() {
+    return {
+      currentUser: {},
+      initDone: false
+    }
+  },
+  async created() {
+    await this.autoLogin()
+    this.initDone = true
+  },
+  methods: {
+    async autoLogin() {
+      try {
+        const res = await login({
+          username: 'chendong',
+          password: 'any_password_works_for_now' 
+        })
+        // Backend returns { token: "...", user: { ... } }
+        // But request.js interceptor returns res.data directly if code===200
+        // So 'res' here is the 'data' part of Result<T>
+        
+        if (res && res.user) {
+          this.currentUser = res.user
+          // Store token if needed for future requests
+          localStorage.setItem('token', res.token)
+          localStorage.setItem('userId', res.user.id)
+        }
+      } catch (error) {
+        console.error('Auto login failed:', error)
+        this.$message.error('自动登录失败，请检查后端服务')
+      }
+    }
+  }
 }
 </script>
 

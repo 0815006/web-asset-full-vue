@@ -84,8 +84,8 @@
             <div slot="header" class="clearfix assets-header">
               <span>文档资产库</span>
               <div class="actions">
-                <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog">上传文档</el-button>
-                <el-button size="small" icon="el-icon-download" @click="batchDownload">打包下载</el-button>
+                <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog" v-if="canUpload">上传文档</el-button>
+                <el-button size="small" icon="el-icon-download" @click="batchDownload" v-if="canDownload">打包下载</el-button>
               </div>
             </div>
 
@@ -95,16 +95,17 @@
               :filter-node-method="filterNode"
               ref="assetTree"
               node-key="id"
-              default-expand-all
+              lazy
+              :load="loadNode"
               show-checkbox
               @node-click="handleNodeClick"
               class="custom-tree">
               <span class="custom-tree-node" slot-scope="{ node, data }">
                 <span>
-                  <i :class="data.isFixed ? 'el-icon-s-cooperation' : (data.children ? 'el-icon-folder' : 'el-icon-document')"></i>
-                  <span :class="{'fixed-category': data.isFixed}">{{ node.label }}</span>
+                  <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
+                  <span>{{ node.label }}</span>
                 </span>
-                <span class="node-actions" v-if="!data.isFixed && !data.isLeaf">
+                <span class="node-actions" v-if="data.nodeType === 1 && data.currentUserPermission && data.currentUserPermission.can_upload">
                   <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(data)">新建子分类</el-button>
                 </span>
               </span>
@@ -170,12 +171,8 @@
 <script>
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
-import { getProduct } from '@/api/product'
-import { getTeamList } from '@/api/team'
-import { getDomainList } from '@/api/domain'
-import { getUserList } from '@/api/user'
-import { getAssetNodeTree, uploadFile } from '@/api/asset-node'
-import { getKnowledgeGraphList } from '@/api/knowledge-graph'
+import { getProductList } from '@/api/product' // Use getProductList to find product by ID locally or implement getProduct in api
+import { getAssetTree, uploadFile, createFolder } from '@/api/asset-node'
 import { search } from '@/api/search'
 
 export default {
@@ -214,17 +211,21 @@ export default {
       
       defaultProps: {
         children: 'children',
-        label: 'label'
+        label: 'label',
+        isLeaf: 'leaf'
       },
       
       assetTreeData: [],
       
-      // ... (rest of data)
+      canUpload: true, // Mock permission
+      canDownload: true, // Mock permission
     }
   },
   computed: {
     uploadCategoryOptions() {
-      // Convert tree data to cascader options
+      // For lazy loading tree, we might not have full tree for cascader.
+      // This is a limitation. We might need to fetch full tree for cascader or use lazy loading cascader.
+      // For now, just use what we have in assetTreeData (roots).
       const format = (nodes) => {
         return nodes.map(node => {
           const item = {
@@ -248,12 +249,32 @@ export default {
       this.loading = true;
       try {
         // 1. Get Product Details
-        const productRes = await getProduct(this.product.id);
-        this.product = { ...this.product, ...productRes };
+        // Since we don't have getProduct(id) API yet (only list), we can fetch list and find.
+        // Or implement getProduct(id) in backend.
+        // For now, fetch list.
+        const productsRes = await getProductList();
+        const productData = productsRes.data.find(p => p.id == this.product.id);
         
-        // 2. Get Asset Tree directly from backend
-        const treeRes = await getAssetNodeTree(this.product.id);
-        this.assetTreeData = treeRes || [];
+        if (productData) {
+            this.product = {
+              id: productData.id,
+              name: productData.productName,
+              team: productData.teamName,
+              domain: productData.domainName,
+              owner: productData.ownerName || 'Unknown',
+              assetCount: productData.assetCount,
+              updateTime: productData.updatedAt ? productData.updatedAt.replace('T', ' ') : '',
+              status: '活跃'
+            };
+        }
+        
+        // 2. Get Asset Tree Root
+        const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
+        this.assetTreeData = treeRes.data.map(node => ({
+             ...node,
+             label: node.fileName,
+             leaf: node.nodeType === 2 || !node.hasChildren
+        }));
         
       } catch (error) {
         console.error(error);
@@ -262,21 +283,34 @@ export default {
         this.loading = false;
       }
     },
+    async loadNode(node, resolve) {
+      if (node.level === 0) {
+        return resolve(this.assetTreeData);
+      }
+      if (node.data.hasChildren) {
+        try {
+          const res = await getAssetTree({ product_id: this.product.id, parent_id: node.data.id });
+          const children = res.data.map(n => ({
+            ...n,
+            label: n.fileName,
+            leaf: n.nodeType === 2 || !n.hasChildren
+          }));
+          resolve(children);
+        } catch (e) {
+          resolve([]);
+        }
+      } else {
+        resolve([]);
+      }
+    },
     filterNode(value, data) {
       if (!value) return true;
       return data.label.indexOf(value) !== -1;
     },
     handleNodeClick(data) {
-      // If it's a file (leaf node usually, or check isLeaf property if available)
-      // For now, let's assume if it has no children and is not a folder type, it's a file
-      // But better logic: check if it's a file based on some property. 
-      // The backend DTO might have 'type' or 'isLeaf'. 
-      // Let's assume leaf nodes are files for preview.
-      if (!data.children || data.children.length === 0) {
+      if (data.nodeType === 2) {
         this.currentPreviewFile = data;
-        // Only show preview if it's a file, not an empty folder. 
-        // We might need a 'type' field from backend to be sure.
-        // For now, just set it, the preview component handles it.
+        this.previewVisible = true;
       }
     },
     handlePreviewNodeClick(data) {
@@ -293,16 +327,14 @@ export default {
         const res = await search({ keyword: query, productId: this.product.id });
         const results = [];
         
-        if (res && res.length > 0) {
-          res.forEach(item => {
+        if (res.data && res.data.length > 0) {
+          res.data.forEach(item => {
             results.push({
               id: item.id,
               label: item.name,
               isProduct: false,
-              path: [this.product.name], // Simplified path
+              path: [this.product.name],
               context: item.highlight || item.text || '暂无内容预览',
-              // We need to find the node in the tree to set sourceTree correctly if we want to preview it
-              // But for now, let's just use the item itself as preview file data
               ...item
             });
           });
@@ -334,8 +366,7 @@ export default {
         return;
       }
       
-      // Determine parentId
-      let parentId = 0; // Default root
+      let parentId = 0;
       if (this.uploadForm.categoryId && this.uploadForm.categoryId.length > 0) {
         parentId = this.uploadForm.categoryId[this.uploadForm.categoryId.length - 1];
       }
@@ -345,19 +376,22 @@ export default {
         for (const file of this.fileList) {
           const formData = new FormData();
           formData.append('file', file.raw);
-          formData.append('productId', this.product.id);
-          formData.append('parentId', parentId);
-          formData.append('zoneType', 'product'); // Assuming product zone
+          formData.append('product_id', this.product.id);
+          formData.append('parent_id', parentId);
           
           await uploadFile(formData);
         }
         
-        this.$message.success('文件上传成功，已同步至本地磁盘与Solr索引库');
+        this.$message.success('文件上传成功');
         this.uploadDialogVisible = false;
         this.fileList = [];
-        // Refresh asset list
-        const treeRes = await getAssetNodeTree(this.product.id);
-        this.assetTreeData = treeRes || [];
+        // Refresh root
+        const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
+        this.assetTreeData = treeRes.data.map(node => ({
+             ...node,
+             label: node.fileName,
+             leaf: node.nodeType === 2 || !node.hasChildren
+        }));
         
       } catch (error) {
         console.error(error);
@@ -378,23 +412,33 @@ export default {
       this.$prompt('请输入子分类名称', '新建子分类', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-      }).then(({ value }) => {
-        if (!data.children) {
-          this.$set(data, 'children', []);
+      }).then(async ({ value }) => {
+        try {
+            await createFolder({
+                product_id: this.product.id,
+                parent_id: data.id,
+                folder_name: value
+            });
+            this.$message.success('创建成功');
+            // Refresh node?
+            // Since we don't have easy way to refresh single node in el-tree lazy without hacking,
+            // we might just refresh root or ask user to collapse/expand.
+            // For now, refresh root.
+             const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
+            this.assetTreeData = treeRes.data.map(node => ({
+                ...node,
+                label: node.fileName,
+                leaf: node.nodeType === 2 || !node.hasChildren
+            }));
+        } catch(e) {
+            this.$message.error('创建失败');
         }
-        data.children.push({
-          id: `new-${Date.now()}`,
-          label: value,
-          children: []
-        });
-        this.$message.success('创建成功');
       }).catch(() => {});
     },
     handleSearchResultClick(item) {
       this.currentPreviewFile = item;
       this.previewVisible = true;
-    },
-    // ...
+    }
   }
 }
 </script>
