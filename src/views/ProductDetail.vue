@@ -90,6 +90,7 @@
             </div>
 
             <el-tree
+              :key="treeKey"
               :data="assetTreeData"
               :props="defaultProps"
               :filter-node-method="filterNode"
@@ -216,6 +217,7 @@ export default {
       },
       
       assetTreeData: [],
+      treeKey: 0,
       
       canUpload: true, // Mock permission
       canDownload: true, // Mock permission
@@ -249,11 +251,8 @@ export default {
       this.loading = true;
       try {
         // 1. Get Product Details
-        // Since we don't have getProduct(id) API yet (only list), we can fetch list and find.
-        // Or implement getProduct(id) in backend.
-        // For now, fetch list.
         const productsRes = await getProductList();
-        const productData = productsRes.data.find(p => p.id == this.product.id);
+        const productData = (productsRes || []).find(p => p.id == this.product.id);
         
         if (productData) {
             this.product = {
@@ -267,15 +266,6 @@ export default {
               status: '活跃'
             };
         }
-        
-        // 2. Get Asset Tree Root
-        const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
-        this.assetTreeData = treeRes.data.map(node => ({
-             ...node,
-             label: node.fileName,
-             leaf: node.nodeType === 2 || !node.hasChildren
-        }));
-        
       } catch (error) {
         console.error(error);
         this.$message.error('加载数据失败');
@@ -285,12 +275,23 @@ export default {
     },
     async loadNode(node, resolve) {
       if (node.level === 0) {
-        return resolve(this.assetTreeData);
+        try {
+          const res = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
+          const rootNodes = (res || []).map(n => ({
+            ...n,
+            label: n.fileName,
+            leaf: n.nodeType === 2 || !n.hasChildren
+          }));
+          this.assetTreeData = rootNodes;
+          return resolve(rootNodes);
+        } catch (e) {
+          return resolve([]);
+        }
       }
       if (node.data.hasChildren) {
         try {
           const res = await getAssetTree({ product_id: this.product.id, parent_id: node.data.id });
-          const children = res.data.map(n => ({
+          const children = (res || []).map(n => ({
             ...n,
             label: n.fileName,
             leaf: n.nodeType === 2 || !n.hasChildren
@@ -392,6 +393,7 @@ export default {
              label: node.fileName,
              leaf: node.nodeType === 2 || !node.hasChildren
         }));
+        this.treeKey++;
         
       } catch (error) {
         console.error(error);
@@ -430,6 +432,7 @@ export default {
                 label: node.fileName,
                 leaf: node.nodeType === 2 || !node.hasChildren
             }));
+            this.treeKey++;
         } catch(e) {
             this.$message.error('创建失败');
         }

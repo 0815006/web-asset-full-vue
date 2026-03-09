@@ -14,6 +14,7 @@
       </el-input>
     </div>
     <el-tree
+      :key="treeKey"
       :data="treeData"
       :props="defaultProps"
       :filter-node-method="filterNode"
@@ -55,9 +56,20 @@ export default {
       default: true
     }
   },
+  data() {
+    return {
+      treeKey: 0
+    }
+  },
   watch: {
     searchQuery(val) {
       this.$refs.tree.filter(val);
+    },
+    treeData: {
+      handler() {
+        this.treeKey++;
+      },
+      deep: true
     }
   },
   methods: {

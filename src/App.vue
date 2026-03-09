@@ -13,8 +13,6 @@
 </template>
 
 <script>
-import { login } from '@/api/user'
-
 export default {
   name: 'App',
   data() {
@@ -29,25 +27,16 @@ export default {
   },
   methods: {
     async autoLogin() {
-      try {
-        const res = await login({
-          username: 'chendong',
-          password: 'any_password_works_for_now' 
-        })
-        // Backend returns { token: "...", user: { ... } }
-        // But request.js interceptor returns res.data directly if code===200
-        // So 'res' here is the 'data' part of Result<T>
-        
-        if (res && res.user) {
-          this.currentUser = res.user
-          // Store token if needed for future requests
-          localStorage.setItem('token', res.token)
-          localStorage.setItem('userId', res.user.id)
-        }
-      } catch (error) {
-        console.error('Auto login failed:', error)
-        this.$message.error('自动登录失败，请检查后端服务')
-      }
+      // 直接默认登录陈东用户，跳过后端接口调用，确保前端能直接渲染一切
+      this.currentUser = {
+        id: 2,
+        username: 'chendong',
+        realName: '陈东',
+        empNo: 'NO.9527',
+        roleType: 2
+      };
+      localStorage.setItem('token', 'mock-token-for-chendong');
+      localStorage.setItem('userId', '2');
     }
   }
 }

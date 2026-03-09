@@ -1,7 +1,7 @@
 module.exports = {
   transpileDependencies: true,
   devServer: {
-    port: 3000,
+    port: 9001,
     host: '0.0.0.0',
     allowedHosts: 'all',
     client: {

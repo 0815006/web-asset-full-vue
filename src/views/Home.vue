@@ -134,7 +134,7 @@ import SearchResultDialog from '../components/SearchResultDialog.vue'
 import TechZoneContent from '../components/TechZoneContent.vue'
 import ProductZoneContent from '../components/ProductZoneContent.vue'
 import MgmtZoneContent from '../components/MgmtZoneContent.vue'
-import { getProductList, toggleFavorite } from '@/api/product'
+import { getProductList } from '@/api/product'
 import { getAssetTree } from '@/api/asset-node'
 import { search } from '@/api/search'
 
