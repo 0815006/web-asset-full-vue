@@ -81,7 +81,7 @@
       </el-tree>
     </div>
 
-    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
+    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: flex-start; align-items: center;">
       <div class="footer-left">
         <el-tooltip 
           v-if="hasExtraFiles" 
@@ -90,9 +90,6 @@
           effect="dark">
           <el-button type="success" icon="el-icon-upload" @click="handleSyncExtra" :loading="syncing">一键入库</el-button>
         </el-tooltip>
-      </div>
-      <div class="footer-right">
-        <el-button @click="handleClose">关 闭</el-button>
       </div>
     </div>
   </el-dialog>
