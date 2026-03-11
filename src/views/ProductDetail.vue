@@ -107,7 +107,7 @@
                   <span>{{ node.label }}</span>
                 </span>
                 <span class="node-actions" v-if="data.nodeType === 1 && data.currentUserPermission && data.currentUserPermission.can_upload">
-                  <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(data)">新建子分类</el-button>
+                  <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(node, data)">新建子分类</el-button>
                 </span>
               </span>
             </el-tree>
@@ -121,12 +121,19 @@
       <el-form :model="uploadForm" label-width="100px">
         <el-form-item label="目标分类">
           <el-cascader
+            :key="cascaderKey"
+            ref="categoryCascader"
             v-model="uploadForm.categoryId"
-            :options="uploadCategoryOptions"
-            :props="{ checkStrictly: true, value: 'id', label: 'label' }"
+            :props="cascaderProps"
+            popper-class="category-cascader"
             clearable
             placeholder="请选择分类（不选默认进入未分类）"
             style="width: 100%;">
+            <template slot-scope="{ node, data }">
+              <div class="cascader-node-custom" @click="handleCascaderNodeClick(node)">
+                {{ data.fileName }}
+              </div>
+            </template>
           </el-cascader>
         </el-form-item>
         <el-form-item label="选择文件">
@@ -147,7 +154,23 @@
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="uploadDialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="submitUpload">确 定</el-button>
+        <el-button type="primary" @click="submitUpload" :loading="loading">确 定</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 新建子分类弹窗 -->
+    <el-dialog title="新建子分类" :visible.sync="newFolderDialogVisible" width="400px">
+      <div style="margin-bottom: 20px; color: #606266;">
+        在当前层级目录下（<span style="color: #409EFF; font-weight: bold;">{{ newFolderForm.parentName }}</span>）新增
+      </div>
+      <el-form :model="newFolderForm" label-width="80px" @submit.native.prevent="submitCreateFolder">
+        <el-form-item label="目录名称">
+          <el-input v-model="newFolderForm.name" placeholder="请输入目录名称"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="newFolderDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitCreateFolder" :loading="dialogLoading" :disabled="dialogLoading">确 定</el-button>
       </div>
     </el-dialog>
 
@@ -187,6 +210,7 @@ export default {
       localSearchQuery: '',
       previewVisible: false,
       uploadDialogVisible: false,
+      newFolderDialogVisible: false,
       currentPreviewFile: null,
       
       searchResultVisible: false,
@@ -207,8 +231,25 @@ export default {
       uploadForm: {
         categoryId: []
       },
+      newFolderForm: {
+        name: '',
+        parentId: 0,
+        parentName: ''
+      },
+      currentNode: null,
+      cascaderKey: 0,
+      cascaderProps: {
+        lazy: true,
+        checkStrictly: true,
+        value: 'id',
+        label: 'fileName',
+        lazyLoad: (node, resolve) => {
+          this.loadCascaderData(node, resolve);
+        }
+      },
       fileList: [],
       loading: false,
+      dialogLoading: false,
       
       defaultProps: {
         children: 'children',
@@ -224,29 +265,35 @@ export default {
     }
   },
   computed: {
-    uploadCategoryOptions() {
-      // For lazy loading tree, we might not have full tree for cascader.
-      // This is a limitation. We might need to fetch full tree for cascader or use lazy loading cascader.
-      // For now, just use what we have in assetTreeData (roots).
-      const format = (nodes) => {
-        return nodes.map(node => {
-          const item = {
-            id: node.id,
-            label: node.label
-          };
-          if (node.children && node.children.length > 0) {
-            item.children = format(node.children);
-          }
-          return item;
-        });
-      };
-      return format(this.assetTreeData);
-    }
   },
   created() {
     this.fetchData();
   },
   methods: {
+    async loadCascaderData(node, resolve) {
+      const { level, data } = node;
+      const parentId = level === 0 ? 0 : data.id;
+      try {
+        const res = await getAssetTree({ product_id: this.product.id, parent_id: parentId });
+        const nodes = (res || [])
+          .filter(n => n.nodeType === 1) // Only folders for category selection
+          .map(n => ({
+            id: n.id,
+            fileName: n.fileName,
+            leaf: n.subFolderFlag === 0
+          }));
+        resolve(nodes);
+      } catch (e) {
+        resolve([]);
+      }
+    },
+    handleCascaderNodeClick(node) {
+      this.uploadForm.categoryId = node.path;
+      // 如果有子节点且未展开，则展开它
+      if (!node.isLeaf) {
+        node.expand();
+      }
+    },
     async fetchData() {
       this.loading = true;
       try {
@@ -354,6 +401,7 @@ export default {
     showUploadDialog() {
       this.uploadDialogVisible = true;
       this.fileList = [];
+      this.cascaderKey++; // Force reset cascader to reload lazy data
     },
     handleFileChange(file, fileList) {
       this.fileList = fileList;
@@ -386,18 +434,25 @@ export default {
         this.$message.success('文件上传成功');
         this.uploadDialogVisible = false;
         this.fileList = [];
-        // Refresh root
-        const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
-        this.assetTreeData = treeRes.data.map(node => ({
-             ...node,
-             label: node.fileName,
-             leaf: node.nodeType === 2 || !node.hasChildren
-        }));
-        this.treeKey++;
+        
+        // 局部刷新
+        const parentNode = this.$refs.assetTree.getNode(parentId);
+        if (parentNode) {
+          parentNode.data.hasChildren = true;
+          parentNode.isLeaf = false;
+          parentNode.loaded = false;
+          parentNode.expand();
+        } else {
+          this.refreshRoot();
+        }
         
       } catch (error) {
         console.error(error);
-        this.$message.error('上传失败');
+        // 如果 request.js 已经报错了，这里可以不再弹窗，或者弹一个通用的
+        // 但为了保险，我们只在没有 response 时弹窗（网络错误等）
+        if (!error.message || error.message.indexOf('timeout') > -1) {
+          this.$message.error('上传请求超时或网络异常');
+        }
       } finally {
         this.loading = false;
       }
@@ -410,33 +465,60 @@ export default {
       }
       this.$message.success(`已打包下载 ${checkedNodes.length} 个文件`);
     },
-    addSubCategory(data) {
-      this.$prompt('请输入子分类名称', '新建子分类', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-      }).then(async ({ value }) => {
-        try {
-            await createFolder({
-                product_id: this.product.id,
-                parent_id: data.id,
-                folder_name: value
-            });
-            this.$message.success('创建成功');
-            // Refresh node?
-            // Since we don't have easy way to refresh single node in el-tree lazy without hacking,
-            // we might just refresh root or ask user to collapse/expand.
-            // For now, refresh root.
-             const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
-            this.assetTreeData = treeRes.data.map(node => ({
-                ...node,
-                label: node.fileName,
-                leaf: node.nodeType === 2 || !node.hasChildren
-            }));
-            this.treeKey++;
-        } catch(e) {
-            this.$message.error('创建失败');
+    addSubCategory(node, data) {
+      this.newFolderForm = {
+        name: '',
+        parentId: data.id,
+        parentName: data.fileName
+      };
+      this.currentNode = node;
+      this.newFolderDialogVisible = true;
+    },
+    async submitCreateFolder() {
+      if (this.dialogLoading) return;
+      if (!this.newFolderForm.name) {
+        this.$message.warning('请输入目录名称');
+        return;
+      }
+      
+      this.dialogLoading = true;
+      try {
+        await createFolder({
+          product_id: this.product.id,
+          parent_id: this.newFolderForm.parentId,
+          folder_name: this.newFolderForm.name
+        });
+        this.$message.success('创建成功');
+        this.newFolderDialogVisible = false;
+        
+        // 局部刷新
+        if (this.currentNode) {
+          this.currentNode.data.hasChildren = true;
+          this.currentNode.isLeaf = false;
+          this.currentNode.loaded = false;
+          this.currentNode.expand();
+        } else {
+          // 如果没有当前节点（理论上不会），则刷新根
+          this.refreshRoot();
         }
-      }).catch(() => {});
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.dialogLoading = false;
+      }
+    },
+    async refreshRoot() {
+      try {
+        const treeRes = await getAssetTree({ product_id: this.product.id, parent_id: 0 });
+        this.assetTreeData = treeRes.data.map(node => ({
+          ...node,
+          label: node.fileName,
+          leaf: node.nodeType === 2 || !node.hasChildren
+        }));
+        this.treeKey++;
+      } catch (e) {
+        console.error('刷新列表失败', e);
+      }
     },
     handleSearchResultClick(item) {
       this.currentPreviewFile = item;
@@ -587,5 +669,44 @@ export default {
   width: 100%;
   height: 100%;
   z-index: 1;
+}
+</style>
+
+<style>
+/* 让级联选择器在任意一级都可以点击文字选中 */
+.category-cascader .el-cascader-panel .el-radio {
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none; /* 让点击穿透到节点，触发展开 */
+}
+
+.category-cascader .el-cascader-panel .el-radio__input {
+  margin-left: 10px;
+}
+
+.category-cascader .el-cascader-node__label {
+  padding-left: 30px;
+  width: 100%;
+}
+
+.cascader-node-custom {
+  width: 100%;
+  height: 100%;
+  padding-left: 10px;
+}
+
+.category-cascader .el-cascader-node__postfix {
+  z-index: 11;
+}
+
+.category-cascader .el-cascader-node {
+  position: relative;
+  padding: 0;
 }
 </style>

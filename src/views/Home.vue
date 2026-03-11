@@ -18,7 +18,13 @@
     </div>
 
     <div class="home-container">
-      <div class="layout-controls" style="margin-bottom: 20px; text-align: right;">
+      <div class="layout-controls" style="margin-bottom: 20px; display: flex; justify-content: flex-end; align-items: center;">
+        <el-button 
+          type="warning" 
+          size="small" 
+          icon="el-icon-monitor" 
+          style="margin-right: 15px;"
+          @click="healthCheckVisible = true">存储健康检查</el-button>
         <el-radio-group v-model="layoutMode" size="small">
           <el-radio-button label="vertical"><i class="el-icon-s-grid"></i> 瀑布流布局</el-radio-button>
           <el-radio-button label="tabs"><i class="el-icon-menu"></i> 标签页布局</el-radio-button>
@@ -33,10 +39,12 @@
                <tech-zone-content 
                  :search-query="techSearchQuery" 
                  :tree-data="techTreeData" 
+                 :root-id="techRootId"
                  :default-props="defaultProps"
                  @search="performSearch($event, 'tech')"
                  @node-click="handleNodeClick"
                  @update:searchQuery="techSearchQuery = $event"
+                 @refresh="fetchData"
                  ref="techTreeTab"
                />
             </div>
@@ -58,10 +66,12 @@
              <mgmt-zone-content
                  :search-query="mgmtSearchQuery"
                  :tree-data="mgmtTreeData"
+                 :root-id="mgmtRootId"
                  :default-props="defaultProps"
                  @search="performSearch($event, 'mgmt')"
                  @node-click="handleNodeClick"
                  @update:searchQuery="mgmtSearchQuery = $event"
+                 @refresh="fetchData"
                  ref="mgmtTreeTab"
              />
           </el-tab-pane>
@@ -125,16 +135,22 @@
       :results="searchResults"
       @item-click="handleSearchResultClick">
     </search-result-dialog>
+
+    <!-- 存储健康检查弹窗 -->
+    <storage-health-check-dialog
+      :visible.sync="healthCheckVisible">
+    </storage-health-check-dialog>
   </div>
 </template>
 
 <script>
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
+import StorageHealthCheckDialog from '../components/StorageHealthCheckDialog.vue'
 import TechZoneContent from '../components/TechZoneContent.vue'
 import ProductZoneContent from '../components/ProductZoneContent.vue'
 import MgmtZoneContent from '../components/MgmtZoneContent.vue'
-import { getProductList } from '@/api/product'
+import { getProductList, toggleFavorite as toggleFavoriteApi } from '@/api/product'
 import { getAssetTree } from '@/api/asset-node'
 import { search } from '@/api/search'
 
@@ -143,6 +159,7 @@ export default {
   components: {
     SuperPreview,
     SearchResultDialog,
+    StorageHealthCheckDialog,
     TechZoneContent,
     ProductZoneContent,
     MgmtZoneContent
@@ -157,6 +174,7 @@ export default {
       layoutMode: 'tabs', // Default to tabs layout as per PRD
       activeTab: 'tech',      // Default active tab
       previewVisible: false,
+      healthCheckVisible: false,
       currentPreviewFile: null,
       currentPreviewTree: [],
       
@@ -172,6 +190,8 @@ export default {
       
       techTreeData: [],
       mgmtTreeData: [],
+      techRootId: null,
+      mgmtRootId: null,
       
       products: [],
       loading: false
@@ -215,12 +235,6 @@ export default {
   },
   created() {
     this.fetchData();
-    // Initialize filter based on favorites
-    if (this.favoriteCount > 0) {
-      this.productFilter = 'favorites';
-    } else {
-      this.productFilter = 'all';
-    }
   },
   methods: {
     async fetchData() {
@@ -234,6 +248,10 @@ export default {
           owner: p.ownerName || 'Unknown Owner'
         }));
 
+        // 根据收藏情况设置默认过滤器：有收藏则默认看收藏，无收藏则看全部
+        const hasFavorites = this.products.some(p => p.isFavorited);
+        this.productFilter = hasFavorites ? 'favorites' : 'all';
+
         // Fetch Tech Zone Root (Product ID 0, Parent ID 0)
         const publicRoots = await getAssetTree({ product_id: 0, parent_id: 0 });
         
@@ -241,6 +259,7 @@ export default {
         const mgmtRoot = (publicRoots || []).find(n => n.fileName === '测试管理专区');
         
         if (techRoot) {
+           this.techRootId = techRoot.id;
            // Fetch children of Tech Root
            const techChildren = await getAssetTree({ product_id: 0, parent_id: techRoot.id });
            this.techTreeData = (techChildren || []).map(node => ({
@@ -250,6 +269,7 @@ export default {
         }
         
         if (mgmtRoot) {
+           this.mgmtRootId = mgmtRoot.id;
            // Fetch children of Mgmt Root
            const mgmtChildren = await getAssetTree({ product_id: 0, parent_id: mgmtRoot.id });
            this.mgmtTreeData = (mgmtChildren || []).map(node => ({
@@ -384,15 +404,26 @@ export default {
         this.previewVisible = true;
       }
     },
-    toggleFavorite(product) {
-      product.isFavorited = !product.isFavorited;
+    async toggleFavorite(product) {
+      const newStatus = !product.isFavorited;
+      const action = newStatus ? 1 : 0;
       
-      // Save to localStorage
-      const savedFavorites = this.products.filter(p => p.isFavorited).map(p => p.id);
-      localStorage.setItem('favoriteProducts', JSON.stringify(savedFavorites));
-      
-      if (this.favoriteCount === 0) {
-        this.productFilter = 'all';
+      try {
+        await toggleFavoriteApi(product.id, action);
+        product.isFavorited = newStatus;
+        
+        // 同步更新本地缓存（可选，主要用于未登录状态或快速响应，但现在有后端了，以后端为准）
+        const savedFavorites = this.products.filter(p => p.isFavorited).map(p => p.id);
+        localStorage.setItem('favoriteProducts', JSON.stringify(savedFavorites));
+        
+        if (this.favoriteCount === 0 && this.productFilter === 'favorites') {
+          this.productFilter = 'all';
+        }
+        
+        this.$message.success(newStatus ? '收藏成功' : '已取消收藏');
+      } catch (error) {
+        console.error('收藏操作失败', error);
+        // request.js 已经处理了错误弹窗
       }
     },
     goToProduct(id) {
