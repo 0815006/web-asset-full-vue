@@ -53,7 +53,7 @@
     <div class="check-legend" v-if="checkResult">
       <span class="legend-item"><i class="dot normal"></i> 匹配一致</span>
       <span class="legend-item"><i class="dot missing"></i> 文件丢失 (数据库有，本地无)</span>
-      <span class="legend-item"><i class="dot extra"></i> 待铺底数据 (本地有，数据库无)</span>
+      <span class="legend-item"><i class="dot extra"></i> 待入库数据 (本地有，数据库无)</span>
     </div>
 
     <div class="check-result-container" v-loading="checking">
@@ -66,7 +66,7 @@
         default-expand-all
         :expand-on-click-node="false"
         class="health-tree">
-        <span class="custom-tree-node" slot-scope="{ node, data }">
+        <span class="custom-tree-node" slot-scope="{ data }">
           <span :class="['node-content', data.status]">
             <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
             <span class="node-name">{{ data.name }}</span>
@@ -75,14 +75,25 @@
               <i class="el-icon-warning missing-icon"></i>
             </el-tooltip>
             
-            <el-tag v-if="data.status === 'extra'" size="mini" type="success" effect="plain" class="extra-tag">待铺底</el-tag>
+            <el-tag v-if="data.status === 'extra'" size="mini" type="success" effect="plain" class="extra-tag">待入库</el-tag>
           </span>
         </span>
       </el-tree>
     </div>
 
-    <div slot="footer" class="dialog-footer">
-      <el-button @click="handleClose">关 闭</el-button>
+    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: space-between; align-items: center;">
+      <div class="footer-left">
+        <el-tooltip 
+          v-if="hasExtraFiles" 
+          content="检测到存储空间存在未登记的新文件或目录。点击「一键入库」可将这些待铺底数据自动注册至数据库，并同步建立全文检索索引。" 
+          placement="top" 
+          effect="dark">
+          <el-button type="success" icon="el-icon-upload" @click="handleSyncExtra" :loading="syncing">一键入库</el-button>
+        </el-tooltip>
+      </div>
+      <div class="footer-right">
+        <el-button @click="handleClose">关 闭</el-button>
+      </div>
     </div>
   </el-dialog>
 </template>
@@ -108,11 +119,18 @@ export default {
       currentPath: '',
       products: [],
       checking: false,
+      syncing: false,
       checkResult: null,
       defaultProps: {
         children: 'children',
         label: 'name'
       }
+    }
+  },
+  computed: {
+    hasExtraFiles() {
+      if (!this.checkResult) return false;
+      return this.checkNodeForExtra(this.checkResult);
     }
   },
   watch: {
@@ -141,7 +159,7 @@ export default {
         return;
       }
       try {
-        const data = await request.get('/assets/storage-path', {
+        const data = await request.get('/api/assets/storage-path', {
           params: {
             type: this.form.type,
             product_id: this.form.productId
@@ -158,7 +176,7 @@ export default {
         return;
       }
       try {
-        await request.post('/assets/create-root-dir', {
+        await request.post('/api/assets/create-root-dir', {
           type: this.form.type,
           product_id: this.form.productId
         });
@@ -189,7 +207,7 @@ export default {
       this.checking = true;
       this.checkResult = null;
       try {
-        const data = await request.get('/assets/health-check', {
+        const data = await request.get('/api/assets/health-check', {
           params: {
             type: this.form.type,
             product_id: this.form.productId
@@ -205,6 +223,29 @@ export default {
     },
     handleClose() {
       this.$emit('update:visible', false);
+    },
+    checkNodeForExtra(node) {
+      if (node.status === 'extra') return true;
+      if (node.children && node.children.length > 0) {
+        return node.children.some(child => this.checkNodeForExtra(child));
+      }
+      return false;
+    },
+    async handleSyncExtra() {
+      this.syncing = true;
+      try {
+        await request.post('/api/assets/sync-extra', {
+          type: this.form.type,
+          product_id: this.form.productId
+        });
+        this.$message.success('一键入库成功！');
+        // 重新检查以刷新树
+        this.startCheck();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.syncing = false;
+      }
     }
   }
 }
@@ -282,7 +323,7 @@ export default {
   margin-right: 5px;
 }
 
-.dot.normal { background-color: #67C23A; }
+.dot.normal { background-color: #00a854; }
 .dot.missing { background-color: #909399; }
 .dot.extra { background-color: #E1F3D8; border: 1px solid #67C23A; }
 
@@ -311,7 +352,8 @@ export default {
 }
 
 .node-content.normal {
-  color: #67C23A;
+  color: #00a854;
+  font-weight: 600;
 }
 
 .node-content.missing {
