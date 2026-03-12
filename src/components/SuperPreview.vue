@@ -156,7 +156,7 @@
 import request from '@/utils/request'
 import { getAssetTree, downloadAssets, updateAsset } from '@/api/asset-node'
 import XMindViewer from '@hyjiacan/xmind-viewer'
-import * as G6 from '@antv/g6'
+import G6 from '@antv/g6'
 
 export default {
   name: 'SuperPreview',
@@ -367,6 +367,8 @@ export default {
         if (container) {
           container.innerHTML = '';
           // 使用本地离线渲染组件
+          console.log("XMindViewer object:", XMindViewer);
+          console.log("G6 object:", G6);
           this.xmindViewer = await XMindViewer.viewer.render(container, buffer, { G6 });
         }
       } catch (e) {
