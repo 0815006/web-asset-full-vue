@@ -234,7 +234,7 @@ export default {
         await request.post('/api/assets/sync-extra', {
           type: this.form.type,
           product_id: this.form.productId
-        });
+        }, { timeout: 60000 }); // 一键入库可能耗时较长，单独设置 60s 超时
         this.$message.success('一键入库成功！');
         // 重新检查以刷新树
         this.startCheck();

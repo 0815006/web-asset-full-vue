@@ -249,6 +249,7 @@ export default {
           formData.append('file', file.raw);
           formData.append('product_id', 0); // 公共专区 product_id 为 0
           formData.append('parent_id', parentId);
+          formData.append('zone_type', 'tech'); // 添加区域类型
           
           await uploadFile(formData);
         }

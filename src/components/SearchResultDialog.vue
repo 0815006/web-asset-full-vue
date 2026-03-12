@@ -1,28 +1,36 @@
 <template>
   <el-dialog
-    :title="`搜索结果: &quot;${query}&quot;`"
+    :title="`全库搜索结果: &quot;${query}&quot;`"
     :visible.sync="localVisible"
-    width="800px"
+    width="900px"
     custom-class="search-result-dialog"
+    top="5vh"
     append-to-body>
     
     <div class="search-results-container">
+      <div class="search-summary" v-if="results.length > 0">
+        找到约 {{ results.length }} 条结果
+      </div>
+
       <div v-if="results.length === 0" class="no-results">
-        <el-empty description="未找到相关内容"></el-empty>
+        <el-empty description="未找到相关内容，请尝试更换关键词"></el-empty>
       </div>
       
       <div v-else class="result-list">
         <div v-for="(item, index) in results" :key="index" class="result-item" @click="handleResultClick(item)">
           <div class="result-header">
-            <i class="el-icon-document"></i>
-            <span class="result-title" v-html="highlight(item.label, query)"></span>
+            <i :class="getFileIcon(item)" class="file-icon"></i>
+            <span class="result-title" v-html="highlightTitle(item.label, query)"></span>
+            <el-tag size="mini" type="info" class="result-type-tag" v-if="item.isProduct">产品</el-tag>
+            <el-tag size="mini" class="result-type-tag" v-else>文档</el-tag>
           </div>
+          
           <div class="result-path">
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item v-for="(p, i) in item.path" :key="i">{{ p }}</el-breadcrumb-item>
-            </el-breadcrumb>
+            <span class="path-label">所属区域：</span>
+            <span class="zone-name">{{ item.zoneName }}</span>
           </div>
-          <div class="result-context" v-html="highlightContext(item.context, query)"></div>
+          
+          <div class="result-context" v-html="formatContext(item.context, query)"></div>
         </div>
       </div>
     </div>
@@ -53,15 +61,41 @@ export default {
     }
   },
   methods: {
-    highlight(text, query) {
-      if (!query || !text) return text;
-      const reg = new RegExp(`(${this.escapeRegExp(query)})`, 'gi');
-      return text.replace(reg, '<span class="highlight-text">$1</span>');
+    getFileIcon(item) {
+      if (item.isProduct) return 'el-icon-box';
+      // Ensure item.ext is a string before calling toLowerCase()
+      const ext = String(item.ext || '').toLowerCase();
+      if (['pdf'].includes(ext)) return 'el-icon-document';
+      if (['doc', 'docx'].includes(ext)) return 'el-icon-document-word';
+      if (['xls', 'xlsx', 'csv'].includes(ext)) return 'el-icon-document-excel';
+      if (['ppt', 'pptx'].includes(ext)) return 'el-icon-data-board';
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) return 'el-icon-picture-outline';
+      if (['txt', 'md'].includes(ext)) return 'el-icon-tickets';
+      return 'el-icon-document';
     },
-    highlightContext(text, query) {
-      if (!query || !text) return text;
+    highlightTitle(text, query) {
+      const safeText = String(text || '');
+      if (!query || !safeText) return safeText;
       const reg = new RegExp(`(${this.escapeRegExp(query)})`, 'gi');
-      return text.replace(reg, '<span class="highlight-text">$1</span>');
+      return safeText.replace(reg, '<em class="highlight-keyword">$1</em>');
+    },
+    formatContext(text, query) {
+      const safeText = String(text || '');
+      if (!safeText) return '暂无内容预览';
+      
+      // 如果后端已经返回了带有 <em> 标签的高亮内容（Solr 默认行为），则直接信任并稍微处理一下样式
+      if (safeText.includes('<em') || safeText.includes('</em>')) {
+        // 将后端的 <em style='color:red'> 替换为统一的 class，方便前端控制样式
+        return safeText.replace(/<em[^>]*>/gi, '<em class="highlight-keyword">');
+      }
+      
+      // 如果是前端本地搜索（如产品搜索），则手动高亮
+      if (query) {
+        const reg = new RegExp(`(${this.escapeRegExp(query)})`, 'gi');
+        return safeText.replace(reg, '<em class="highlight-keyword">$1</em>');
+      }
+      
+      return safeText;
     },
     escapeRegExp(string) {
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -75,58 +109,126 @@ export default {
 </script>
 
 <style scoped>
+.search-result-dialog /deep/ .el-dialog__body {
+  padding-top: 10px;
+  padding-bottom: 20px;
+}
+
 .search-results-container {
-  max-height: 60vh;
+  max-height: 65vh;
   overflow-y: auto;
-  padding-right: 10px;
+  padding-right: 15px;
 }
+
+/* 自定义滚动条 */
+.search-results-container::-webkit-scrollbar {
+  width: 6px;
+}
+.search-results-container::-webkit-scrollbar-thumb {
+  background-color: #c0c4cc;
+  border-radius: 3px;
+}
+
+.search-summary {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.result-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .result-item {
-  padding: 16px;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  margin-bottom: 16px;
+  padding: 15px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: background-color 0.2s;
 }
+
 .result-item:hover {
   background-color: #f5f7fa;
-  border-color: #409EFF;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
 }
+
 .result-header {
-  font-size: 16px;
-  font-weight: bold;
-  color: #303133;
-  margin-bottom: 12px;
   display: flex;
   align-items: center;
+  margin-bottom: 6px;
 }
-.result-header i {
+
+.file-icon {
+  font-size: 18px;
+  color: #909399;
   margin-right: 8px;
-  color: #409EFF;
 }
+
+.result-title {
+  font-size: 18px;
+  color: #1a0dab; /* 类似 Google 的标题蓝 */
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.result-item:hover .result-title {
+  text-decoration: underline;
+}
+
+.result-type-tag {
+  margin-left: 10px;
+  transform: scale(0.9);
+}
+
 .result-path {
-  margin-bottom: 12px;
-  background-color: #f8f9fa;
-  padding: 6px 12px;
-  border-radius: 4px;
-}
-.result-context {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
   font-size: 13px;
-  color: #606266;
+}
+
+.path-label {
+  color: #5f6368;
+  margin-right: 5px;
+  white-space: nowrap;
+}
+
+.zone-name {
+  color: #006621; /* 类似 Google 的路径绿 */
+  font-weight: normal;
+}
+
+.result-path /deep/ .el-breadcrumb__inner {
+  color: #006621; /* 类似 Google 的路径绿 */
+  font-weight: normal;
+}
+
+.result-path /deep/ .el-breadcrumb__separator {
+  margin: 0 3px;
+  color: #5f6368;
+}
+
+.result-context {
+  font-size: 14px;
+  color: #4d5156; /* 类似 Google 的摘要灰 */
   line-height: 1.6;
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3; /* 最多显示3行摘要 */
   overflow: hidden;
+  word-break: break-all;
 }
 </style>
+
 <style>
-.highlight-text {
-  color: #f56c6c;
+/* 全局样式，用于 v-html 渲染的高亮标签 */
+.highlight-keyword {
+  color: #ea4335; /* 红色高亮 */
+  font-style: normal;
   font-weight: bold;
-  background-color: rgba(245, 108, 108, 0.1);
-  padding: 0 4px;
-  border-radius: 2px;
+  background-color: transparent;
 }
 </style>

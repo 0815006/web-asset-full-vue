@@ -177,6 +177,7 @@
     <!-- 超级预览弹窗 -->
     <super-preview 
       :visible.sync="previewVisible" 
+      :title="product.name"
       :file-data="currentPreviewFile"
       :tree-data="assetTreeData"
       @node-click="handlePreviewNodeClick">
@@ -196,7 +197,7 @@
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
 import { getProductList } from '@/api/product' // Use getProductList to find product by ID locally or implement getProduct in api
-import { getAssetTree, uploadFile, createFolder } from '@/api/asset-node'
+import { getAssetTree, uploadFile, createFolder, downloadAssets, getAssetDetails } from '@/api/asset-node'
 import { search } from '@/api/search'
 
 export default {
@@ -372,28 +373,33 @@ export default {
       
       this.loading = true;
       try {
+        // For product-specific search, we pass the productId
         const res = await search({ keyword: query, productId: this.product.id });
-        const results = [];
         
-        if (res.data && res.data.length > 0) {
-          res.data.forEach(item => {
-            results.push({
-              id: item.id,
-              label: item.name,
-              isProduct: false,
-              path: [this.product.name],
-              context: item.highlight || item.text || '暂无内容预览',
-              ...item
-            });
-          });
+        let results = [];
+        if (res && Array.isArray(res)) {
+          results = res.map(item => ({
+            id: parseInt(item.id),
+            label: item.name,
+            fileName: item.name,
+            ext: item.ext,
+            treePath: item.tree_path,
+            productId: item.product_id,
+            nodeType: 2, // All results within a product are files/docs
+            isProduct: false,
+            path: [this.product.name], // Path starts with the product name
+            context: item.highlight || item.text || '暂无内容预览',
+            sourceTree: this.assetTreeData, // The source tree is the product's own asset tree
+            ...item
+          }));
         }
         
         this.searchResults = results;
         this.currentSearchQuery = query;
         this.searchResultVisible = true;
       } catch (error) {
-        console.error(error);
-        this.$message.error('搜索失败');
+        console.error('Search failed with error:', error);
+        this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
         this.loading = false;
       }
@@ -457,13 +463,38 @@ export default {
         this.loading = false;
       }
     },
-    batchDownload() {
-      const checkedNodes = this.$refs.assetTree.getCheckedNodes(true);
+    async batchDownload() {
+      const checkedNodes = this.$refs.assetTree.getCheckedNodes();
       if (checkedNodes.length === 0) {
         this.$message.warning('请先勾选需要下载的文件');
         return;
       }
-      this.$message.success(`已打包下载 ${checkedNodes.length} 个文件`);
+      
+      const fileIds = checkedNodes.map(node => node.id);
+      
+      this.loading = true;
+      try {
+        const response = await downloadAssets({ file_ids: fileIds });
+        
+        // 处理 Blob 下载
+        const blob = new Blob([response], { type: 'application/zip' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `${this.product.name}_资产打包.zip`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        this.$message.success(`已成功打包下载 ${checkedNodes.length} 个节点`);
+      } catch (error) {
+        console.error('下载失败', error);
+        // 如果是后端返回的错误（比如数量限制），request.js 应该已经处理了弹窗
+        // 但如果是下载过程中的其他错误，这里可以兜底
+      } finally {
+        this.loading = false;
+      }
     },
     addSubCategory(node, data) {
       this.newFolderForm = {
@@ -520,9 +551,18 @@ export default {
         console.error('刷新列表失败', e);
       }
     },
-    handleSearchResultClick(item) {
-      this.currentPreviewFile = item;
-      this.previewVisible = true;
+    async handleSearchResultClick(item) {
+      this.loading = true;
+      try {
+        const fileDetails = await getAssetDetails(item.id);
+        this.currentPreviewFile = { ...item, ...fileDetails };
+        this.previewVisible = true;
+      } catch (error) {
+        console.error('Failed to get file details for preview:', error);
+        this.$message.error('无法加载文件预览，请重试');
+      } finally {
+        this.loading = false;
+      }
     }
   }
 }

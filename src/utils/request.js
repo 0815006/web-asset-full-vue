@@ -4,7 +4,7 @@ import { Message } from 'element-ui'
 // 创建 axios 实例
 const service = axios.create({
   baseURL: '', // url = base url + request url
-  timeout: 5000 // request timeout
+  timeout: 30000 // request timeout increased to 30s
 })
 
 // request interceptor
@@ -41,6 +41,11 @@ service.interceptors.response.use(
    * You can also judge the status by HTTP Status Code
    */
   response => {
+    // 如果是 Blob 类型，直接返回
+    if (response.config.responseType === 'blob') {
+      return response.data
+    }
+
     const res = response.data
 
     // if the custom code is not 200, it is judged as an error.

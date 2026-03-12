@@ -70,3 +70,28 @@ export function uploadFile(data) {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
 }
+
+export function updateAsset(id, data) {
+  return request({
+    url: `/api/assets/${id}/update`,
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function downloadAssets(data) {
+  return request({
+    url: '/api/assets/download',
+    method: 'post',
+    data,
+    responseType: 'blob'
+  })
+}
+
+export function getAssetDetails(id) {
+  return request({
+    url: `/api/assets/${id}/details`,
+    method: 'get'
+  })
+}

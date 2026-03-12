@@ -249,6 +249,7 @@ export default {
           formData.append('file', file.raw);
           formData.append('product_id', 0);
           formData.append('parent_id', parentId);
+          formData.append('zone_type', 'mgmt'); // 添加区域类型
           
           await uploadFile(formData);
         }

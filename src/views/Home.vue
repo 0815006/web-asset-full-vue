@@ -23,8 +23,14 @@
           type="warning" 
           size="small" 
           icon="el-icon-monitor" 
-          style="margin-right: 15px;"
+          style="margin-right: 10px;"
           @click="healthCheckVisible = true">存储健康检查</el-button>
+        <el-button 
+          type="warning" 
+          size="small" 
+          icon="el-icon-search" 
+          style="margin-right: 15px;"
+          @click="indexHealthCheckVisible = true">索引健康检查</el-button>
         <el-radio-group v-model="layoutMode" size="small">
           <el-radio-button label="vertical"><i class="el-icon-s-grid"></i> 瀑布流布局</el-radio-button>
           <el-radio-button label="tabs"><i class="el-icon-menu"></i> 标签页布局</el-radio-button>
@@ -42,7 +48,7 @@
                  :root-id="techRootId"
                  :default-props="defaultProps"
                  @search="performSearch($event, 'tech')"
-                 @node-click="handleNodeClick"
+                 @node-click="handleNodeClick($event, 'tech')"
                  @update:searchQuery="techSearchQuery = $event"
                  @refresh="fetchData"
                  ref="techTreeTab"
@@ -69,7 +75,7 @@
                  :root-id="mgmtRootId"
                  :default-props="defaultProps"
                  @search="performSearch($event, 'mgmt')"
-                 @node-click="handleNodeClick"
+                 @node-click="handleNodeClick($event, 'mgmt')"
                  @update:searchQuery="mgmtSearchQuery = $event"
                  @refresh="fetchData"
                  ref="mgmtTreeTab"
@@ -85,7 +91,7 @@
                  :tree-data="techTreeData" 
                  :default-props="defaultProps"
                  @search="performSearch($event, 'tech')"
-                 @node-click="handleNodeClick"
+                 @node-click="handleNodeClick($event, 'tech')"
                  @update:searchQuery="techSearchQuery = $event"
                  ref="techTreeVertical"
                />
@@ -111,7 +117,7 @@
                  :tree-data="mgmtTreeData"
                  :default-props="defaultProps"
                  @search="performSearch($event, 'mgmt')"
-                 @node-click="handleNodeClick"
+                 @node-click="handleNodeClick($event, 'mgmt')"
                  @update:searchQuery="mgmtSearchQuery = $event"
                  ref="mgmtTreeVertical"
              />
@@ -123,6 +129,7 @@
     <!-- 超级预览弹窗 -->
     <super-preview 
       :visible.sync="previewVisible" 
+      :title="currentPreviewTitle"
       :file-data="currentPreviewFile"
       :tree-data="currentPreviewTree"
       @node-click="handlePreviewNodeClick">
@@ -140,6 +147,11 @@
     <storage-health-check-dialog
       :visible.sync="healthCheckVisible">
     </storage-health-check-dialog>
+
+    <!-- 索引健康检查弹窗 -->
+    <index-health-check-dialog
+      :visible.sync="indexHealthCheckVisible">
+    </index-health-check-dialog>
   </div>
 </template>
 
@@ -147,11 +159,12 @@
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
 import StorageHealthCheckDialog from '../components/StorageHealthCheckDialog.vue'
+import IndexHealthCheckDialog from '../components/IndexHealthCheckDialog.vue'
 import TechZoneContent from '../components/TechZoneContent.vue'
 import ProductZoneContent from '../components/ProductZoneContent.vue'
 import MgmtZoneContent from '../components/MgmtZoneContent.vue'
 import { getProductList, toggleFavorite as toggleFavoriteApi } from '@/api/product'
-import { getAssetTree } from '@/api/asset-node'
+import { getAssetTree, getAssetDetails } from '@/api/asset-node'
 import { search } from '@/api/search'
 
 export default {
@@ -160,6 +173,7 @@ export default {
     SuperPreview,
     SearchResultDialog,
     StorageHealthCheckDialog,
+    IndexHealthCheckDialog,
     TechZoneContent,
     ProductZoneContent,
     MgmtZoneContent
@@ -175,8 +189,10 @@ export default {
       activeTab: 'tech',      // Default active tab
       previewVisible: false,
       healthCheckVisible: false,
+      indexHealthCheckVisible: false,
       currentPreviewFile: null,
       currentPreviewTree: [],
+      currentPreviewTitle: '',
       
       searchResultVisible: false,
       currentSearchQuery: '',
@@ -264,6 +280,7 @@ export default {
            const techChildren = await getAssetTree({ product_id: 0, parent_id: techRoot.id });
            this.techTreeData = (techChildren || []).map(node => ({
              ...node,
+             label: node.fileName,
              leaf: node.nodeType === 2 || !node.hasChildren
            }));
         }
@@ -274,6 +291,7 @@ export default {
            const mgmtChildren = await getAssetTree({ product_id: 0, parent_id: mgmtRoot.id });
            this.mgmtTreeData = (mgmtChildren || []).map(node => ({
              ...node,
+             label: node.fileName,
              leaf: node.nodeType === 2 || !node.hasChildren
            }));
         }
@@ -309,17 +327,21 @@ export default {
       if (!value) return true;
       return data.label.indexOf(value) !== -1;
     },
-    handleNodeClick(data, node, component) {
-      if (data.isLeaf) {
+    handleNodeClick(data, zoneType) {
+      if (data.nodeType === 2) {
         // Determine which tree it belongs to
         let treeData = [];
-        if (component.$parent.$el.classList.contains('tech-zone')) {
+        let title = '';
+        if (zoneType === 'tech') {
           treeData = this.techTreeData;
+          title = '测试技术及工艺专区';
         } else {
           treeData = this.mgmtTreeData;
+          title = '测试管理专区';
         }
         
         this.currentPreviewTree = treeData;
+        this.currentPreviewTitle = title;
         this.currentPreviewFile = data;
         this.previewVisible = true;
       }
@@ -333,75 +355,119 @@ export default {
         return;
       }
       
+      console.log(`Starting search for: "${query}" in scope: "${scope}"`);
       this.loading = true;
       try {
-        const res = await search({ keyword: query });
-        const results = [];
-        
-        // Process backend results
-        if (res && res.length > 0) {
-          res.forEach(item => {
-            // Filter by scope if needed
-            if (scope === 'tech' && item.zone_type !== 'tech') return;
-            if (scope === 'mgmt' && item.zone_type !== 'mgmt') return;
-            
-            results.push({
-              id: item.id,
-              label: item.name,
-              isProduct: false, // Assuming search mainly returns files/nodes
-              path: [item.zone_type === 'tech' ? '测试技术及工艺专区' : '测试管理专区'], // Simplified path
-              context: item.highlight || item.text || '暂无内容预览',
-              sourceTree: item.zone_type === 'tech' ? this.techTreeData : this.mgmtTreeData,
-              ...item
-            });
-          });
+        const params = { keyword: query };
+        if (scope === 'tech' || scope === 'mgmt') {
+          params.zoneType = scope;
         }
-        
-        // Also search products locally if global scope (since backend search might not cover products yet, or we want to keep existing logic)
-        // Wait, the user said "Update Home.vue to use the real backend search API".
-        // If the backend search also covers products, I should use it.
-        // But looking at SearchServiceImpl, it indexes AssetNode.
-        // It doesn't seem to index BusiProduct directly, although it has productId field.
-        // So I should probably keep the local product search for now, or ask.
-        // Given the instructions, I will mix backend results with local product search for global scope.
-        
-        if (scope === 'global') {
-           const productResults = this.products.filter(p => 
-            p.productName.toLowerCase().includes(query.toLowerCase()) || 
-            p.teamName.toLowerCase().includes(query.toLowerCase()) || 
-            p.domainName.toLowerCase().includes(query.toLowerCase()) ||
-            p.owner.toLowerCase().includes(query.toLowerCase())
-          );
-          
-          productResults.forEach(p => {
-            results.push({
-              id: p.id,
-              label: p.productName,
-              isProduct: true,
-              path: ['产品专区', p.teamName, p.domainName],
-              context: `所属团队: ${p.teamName}，业务领域: ${p.domainName}，负责人: ${p.owner}，资产数: ${p.assetCount}。`,
-              sourceTree: null
-            });
-          });
-        }
+        // For 'global' scope, we don't pass any filter, so it searches everything.
 
+        const res = await search(params);
+        console.log('Search API response:', res);
+        
+        let results = [];
+        if (res && Array.isArray(res)) {
+          results = res.map(item => {
+            // According to user feedback, zone_type is the product_id for products.
+            const isProduct = item.zone_type && !isNaN(parseInt(item.zone_type));
+            
+            let zoneName = '未知区域';
+
+            if (item.zone_type === 'product') {
+              path = [item.zone_name || '产品专区'];
+              // For products, we need to fetch the tree on demand
+              sourceTree = []; 
+            } else if (item.zone_type === 'tech') {
+              zoneName = '测试技术及工艺专区';
+            } else if (item.zone_type === 'mgmt') {
+              zoneName = '测试管理专区';
+            } else if (item.zone_type === 'product') {
+              zoneName = item.zone_name || '产品专区';
+            }
+
+            return {
+              id: parseInt(item.id),
+              label: item.name,
+              fileName: item.name,
+              ext: item.ext,
+              treePath: item.tree_path,
+              productId: item.product_id,
+              nodeType: 2, // Search results are always files
+              isProduct: false,
+              path: [zoneName], // Simplified path for display
+              zoneName: zoneName,
+              context: item.highlight || item.text || '暂无内容预览',
+              sourceTree: item.zone_type === 'tech' ? this.techTreeData : (item.zone_type === 'mgmt' ? this.mgmtTreeData : []),
+              ...item
+            };
+          });
+        }
+        
+        console.log('Processed search results:', results);
         this.searchResults = results;
         this.currentSearchQuery = query;
+        
+        console.log('Setting searchResultVisible to true');
         this.searchResultVisible = true;
+
       } catch (error) {
-        console.error(error);
-        this.$message.error('搜索失败');
+        console.error('Search failed with error:', error);
+        this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
         this.loading = false;
+        console.log('Search finished.');
       }
     },
-    handleSearchResultClick(item) {
+    async handleSearchResultClick(item) {
       if (item.isProduct) {
         this.goToProduct(item.id);
       } else {
-        this.currentPreviewTree = item.sourceTree;
-        this.currentPreviewFile = item;
-        this.previewVisible = true;
+        this.loading = true;
+        try {
+          // First, get the full, real-time details of the file from the database
+          const fileDetails = await getAssetDetails(item.id);
+
+          // Now, prepare the data for the preview component
+          let title = '文件预览'; // Default title
+          let treeData = [];
+
+          if (item.zone_type === 'tech') {
+            title = '测试技术及工艺专区';
+            treeData = this.techTreeData;
+          } else if (item.zone_type === 'mgmt') {
+            title = '测试管理专区';
+            treeData = this.mgmtTreeData;
+          } else if (item.zone_type === 'product') {
+            title = item.zone_name || '产品专区';
+            // For product files, we need to fetch the tree dynamically
+            // The SuperPreview component's loadNode method will handle fetching children
+            // We just need to pass the initial root for the product.
+            // Since product_id is available, we can pass a dummy root node for the product.
+            treeData = [{ 
+              id: 0, // Root node for product tree
+              fileName: title,
+              label: title,
+              nodeType: 1, // Folder type
+              hasChildren: true, // Assume it has children to enable lazy loading
+              productId: item.product_id
+            }];
+          }
+
+          this.currentPreviewTree = treeData;
+          this.currentPreviewTitle = title;
+          
+          // Combine the search result info (like highlight context) with the full db record
+          this.currentPreviewFile = { ...item, ...fileDetails };
+          
+          this.previewVisible = true;
+        } catch (error) {
+          console.error('Failed to get file details for preview:', error);
+          this.$message.error('无法加载文件预览，请重试');
+        } finally {
+          this.loading = false;
+        }
       }
     },
     async toggleFavorite(product) {
