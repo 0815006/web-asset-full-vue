@@ -7,9 +7,12 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
+    "@antv/g6": "^5.0.51",
+    "@hyjiacan/xmind-viewer": "^2.0.2",
     "axios": "^1.6.8",
     "core-js": "^3.48.0",
     "element-ui": "^2.15.14",
+    "stream-browserify": "^3.0.0",
     "vue": "^2.7.16",
     "vue-router": "^3.6.5"
   },

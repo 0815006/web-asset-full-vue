@@ -41,8 +41,8 @@ service.interceptors.response.use(
    * You can also judge the status by HTTP Status Code
    */
   response => {
-    // 如果是 Blob 类型，直接返回
-    if (response.config.responseType === 'blob') {
+    // 如果是 Blob 或 ArrayBuffer 类型，直接返回
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
       return response.data
     }
 

@@ -26,19 +26,7 @@
           <el-tooltip content="清除 Solr 服务器上所有多余的文件" placement="top">
             <el-button type="danger" size="small" icon="el-icon-delete" @click="handleCleanAll" :disabled="!checkDone || extraSolrIds.length === 0">全部清理</el-button>
           </el-tooltip>
-
-          <el-tooltip content="重新遍历所有文件并建立索引（支持内容检索），耗时较长" placement="top">
-            <el-button type="primary" size="small" icon="el-icon-s-operation" @click="handleRebuildAll" :disabled="isRebuilding" style="margin-left: 10px;">全部重建</el-button>
-          </el-tooltip>
         </div>
-      </div>
-
-      <div v-if="isRebuilding" class="rebuild-progress-wrapper" style="margin-top: 15px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-          <span style="font-size: 14px; color: #606266;">正在重建全库索引...</span>
-          <span style="font-size: 14px; color: #409EFF;">{{ rebuildCurrent }} / {{ rebuildTotal }}</span>
-        </div>
-        <el-progress :percentage="rebuildPercentage" :status="rebuildPercentage === 100 ? 'success' : ''"></el-progress>
       </div>
 
       <el-table :data="comparisonList" border height="500px" style="width: 100%; margin-top: 20px;">
@@ -88,6 +76,25 @@
           </template>
         </el-table-column>
       </el-table>
+    </div>
+
+    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: flex-start; align-items: center; width: 100%;">
+      <div class="footer-left" style="flex: 1; display: flex; align-items: center;">
+        <el-tooltip content="重新遍历所有文件并建立索引（支持内容检索），耗时较长" placement="top">
+          <el-button type="primary" size="small" icon="el-icon-s-operation" @click="handleRebuildAll" :disabled="isRebuilding">全部重建</el-button>
+        </el-tooltip>
+        
+        <div v-if="isRebuilding" style="flex: 1; margin-left: 10px; display: flex; align-items: center;">
+          <span style="font-size: 13px; color: #606266; margin-right: 10px; white-space: nowrap;">
+            重建进度: {{ rebuildCurrent }} / {{ rebuildTotal }}
+          </span>
+          <el-progress 
+            :percentage="rebuildPercentage" 
+            :status="rebuildPercentage === 100 ? 'success' : null"
+            style="flex: 1;">
+          </el-progress>
+        </div>
+      </div>
     </div>
   </el-dialog>
 </template>

@@ -96,7 +96,7 @@
             <!-- XMind 预览 -->
             <div v-else-if="activeType === 'xmind'" class="xmind-viewer-wrapper" style="width: 100%; height: 100%; position: relative;">
               <div v-if="xmindLoading" class="xmind-loading-overlay">
-                <el-progress type="circle" :percentage="downloadProgress" :status="downloadProgress === 100 ? 'success' : ''"></el-progress>
+                <el-progress type="circle" :percentage="downloadProgress" :status="downloadProgress === 100 ? 'success' : null"></el-progress>
                 <p class="loading-text">正在加载思维导图...</p>
               </div>
               <div id="xmind-container" class="xmind-viewer"></div>
@@ -155,6 +155,8 @@
 <script>
 import request from '@/utils/request'
 import { getAssetTree, downloadAssets, updateAsset } from '@/api/asset-node'
+import XMindViewer from '@hyjiacan/xmind-viewer'
+import * as G6 from '@antv/g6'
 
 export default {
   name: 'SuperPreview',
@@ -343,41 +345,30 @@ export default {
       }
     },
     async initXmindViewer() {
-      if (typeof XMindEmbedViewer === 'undefined') {
-        this.$message.error('XMind SDK 未加载，请检查网络');
-        return;
-      }
-
       this.xmindLoading = true;
       this.downloadProgress = 0;
       try {
         const response = await request({
           url: this.previewUrl,
           method: 'get',
-          responseType: 'blob',
+          responseType: 'arraybuffer', // 改为 arraybuffer 以供 XMindViewer 解析
           onDownloadProgress: (progressEvent) => {
             if (progressEvent.lengthComputable) {
               this.downloadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             } else {
-              // 如果无法计算总大小，可以给一个模拟进度
               this.downloadProgress = Math.min(this.downloadProgress + 10, 90);
             }
           }
         });
         
-        const blob = response; // request 拦截器中如果是 blob 会直接返回 data
+        const buffer = response; // request 拦截器中如果是 arraybuffer 会直接返回 data
         
         const container = document.getElementById('xmind-container');
-        if (container) container.innerHTML = ''; 
-
-        this.xmindViewer = new window.XMindEmbedViewer({
-          el: '#xmind-container',
-          file: blob,
-          styles: {
-            height: '100%',
-            width: '100%'
-          }
-        });
+        if (container) {
+          container.innerHTML = '';
+          // 使用本地离线渲染组件
+          this.xmindViewer = await XMindViewer.viewer.render(container, buffer, { G6 });
+        }
       } catch (e) {
         console.error('XMind preview failed', e);
         this.$message.error('XMind 预览失败，请检查文件格式或网络状态');
@@ -449,7 +440,9 @@ export default {
       // 销毁 XMind 查看器
       if (this.xmindViewer) {
         try {
-          this.xmindViewer.destroy();
+          if (typeof this.xmindViewer.destroy === 'function') {
+            this.xmindViewer.destroy();
+          }
         } catch (e) {
           console.warn('XMind destroy failed', e);
         }

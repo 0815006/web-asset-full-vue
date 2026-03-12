@@ -81,15 +81,29 @@
       </el-tree>
     </div>
 
-    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: flex-start; align-items: center;">
-      <div class="footer-left">
+    <div slot="footer" class="dialog-footer" style="display: flex; justify-content: flex-start; align-items: center; width: 100%;">
+      <div class="footer-left" style="flex: 1; display: flex; align-items: center;">
         <el-tooltip 
-          v-if="hasExtraFiles" 
+          v-if="hasExtraFiles && !syncing" 
           content="检测到存储空间存在未登记的新文件或目录。点击「一键入库」可将这些待铺底数据自动注册至数据库，并同步建立全文检索索引。" 
           placement="top" 
           effect="dark">
-          <el-button type="success" icon="el-icon-upload" @click="handleSyncExtra" :loading="syncing">一键入库</el-button>
+          <el-button type="success" icon="el-icon-upload" @click="handleSyncExtra">一键入库</el-button>
         </el-tooltip>
+        
+        <div v-if="syncing" style="flex: 1; margin-left: 10px; display: flex; align-items: center;">
+          <span style="font-size: 13px; color: #606266; margin-right: 10px; white-space: nowrap;">
+            入库进度: {{ syncProgress.processedFiles }} / {{ syncProgress.totalFiles }}
+          </span>
+          <el-progress 
+            :percentage="syncPercentage" 
+            :status="syncProgress.errorMsg ? 'exception' : (syncPercentage === 100 ? 'success' : null)"
+            style="flex: 1; margin-right: 10px;">
+          </el-progress>
+          <span style="font-size: 12px; color: #909399; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;" :title="syncProgress.currentFileName">
+            正在处理: {{ syncProgress.currentFileName }}
+          </span>
+        </div>
       </div>
     </div>
   </el-dialog>
@@ -117,6 +131,13 @@ export default {
       products: [],
       checking: false,
       syncing: false,
+      syncTimer: null,
+      syncProgress: {
+        totalFiles: 0,
+        processedFiles: 0,
+        currentFileName: '',
+        errorMsg: null
+      },
       checkResult: null,
       defaultProps: {
         children: 'children',
@@ -128,6 +149,11 @@ export default {
     hasExtraFiles() {
       if (!this.checkResult) return false;
       return this.checkNodeForExtra(this.checkResult);
+    },
+    syncPercentage() {
+      if (this.syncProgress.totalFiles === 0) return 0;
+      const percent = Math.floor((this.syncProgress.processedFiles / this.syncProgress.totalFiles) * 100);
+      return percent > 100 ? 100 : percent;
     }
   },
   watch: {
@@ -147,6 +173,9 @@ export default {
         this.fetchStoragePath();
       }
     }
+  },
+  beforeDestroy() {
+    this.clearSyncTimer();
   },
   methods: {
     async fetchStoragePath() {
@@ -219,6 +248,7 @@ export default {
       }
     },
     handleClose() {
+      this.clearSyncTimer();
       this.$emit('update:visible', false);
     },
     checkNodeForExtra(node) {
@@ -230,18 +260,68 @@ export default {
     },
     async handleSyncExtra() {
       this.syncing = true;
+      this.syncProgress = {
+        totalFiles: 0,
+        processedFiles: 0,
+        currentFileName: '准备中...',
+        errorMsg: null
+      };
+      
       try {
         await request.post('/api/assets/sync-extra', {
           type: this.form.type,
           product_id: this.form.productId
-        }, { timeout: 60000 }); // 一键入库可能耗时较长，单独设置 60s 超时
-        this.$message.success('一键入库成功！');
-        // 重新检查以刷新树
-        this.startCheck();
+        });
+        
+        // 开始轮询进度
+        this.pollSyncProgress();
       } catch (e) {
         console.error(e);
-      } finally {
         this.syncing = false;
+      }
+    },
+    pollSyncProgress() {
+      this.clearSyncTimer();
+      this.syncTimer = setInterval(async () => {
+        try {
+          const data = await request.get('/api/assets/sync-progress', {
+            params: {
+              type: this.form.type,
+              product_id: this.form.productId
+            }
+          });
+          
+          if (data) {
+            this.syncProgress.totalFiles = data.totalFiles || 0;
+            this.syncProgress.processedFiles = data.processedFiles || 0;
+            this.syncProgress.currentFileName = data.currentFileName || '';
+            this.syncProgress.errorMsg = data.errorMsg;
+            
+            if (data.isFinished) {
+              this.clearSyncTimer();
+              if (data.errorMsg) {
+                this.$message.error(data.errorMsg);
+              } else {
+                this.$message.success('一键入库成功！');
+                // 重新检查以刷新树
+                this.startCheck();
+              }
+              setTimeout(() => {
+                this.syncing = false;
+              }, 1000);
+            }
+          }
+        } catch (e) {
+          console.error('获取进度失败', e);
+          this.clearSyncTimer();
+          this.syncing = false;
+        }
+      }, 1000); // 每秒轮询一次
+    },
+    clearSyncTimer() {
+      if (this.syncTimer) {
+        clearInterval(this.syncTimer);
+        this.syncTimer = null;
       }
     }
   }
