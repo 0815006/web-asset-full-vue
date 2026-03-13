@@ -102,11 +102,14 @@
               <div id="xmind-container" class="xmind-viewer"></div>
             </div>
             
-            <!-- 文本预览 -->
-            <div v-else-if="activeType === 'text'" class="text-viewer" v-loading="textLoading">
-              <pre v-if="textContent">{{ textContent }}</pre>
-              <div v-else-if="!textLoading" class="empty-text">文件内容为空</div>
-            </div>
+          <!-- 文本预览 -->
+          <div v-else-if="activeType === 'text'" class="text-viewer" v-loading="textLoading">
+            <template v-if="isMarkdown">
+              <div class="markdown-body" v-html="markdownHtml"></div>
+            </template>
+            <pre v-else-if="textContent">{{ textContent }}</pre>
+            <div v-else-if="!textLoading" class="empty-text">文件内容为空</div>
+          </div>
 
             <!-- 不支持预览 -->
             <div v-else-if="activeType === 'unsupported'" class="unsupported-preview">
@@ -157,6 +160,9 @@ import request from '@/utils/request'
 import { getAssetTree, downloadAssets, updateAsset } from '@/api/asset-node'
 import XMindViewer from '@hyjiacan/xmind-viewer'
 import G6 from '@antv/g6'
+import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github.css' // 引用 github 风格的代码高亮样式
 
 export default {
   name: 'SuperPreview',
@@ -240,6 +246,27 @@ export default {
       if (!this.fileData) return false;
       const ext = String(this.fileData.ext || '').toLowerCase();
       return ext === 'xmind';
+    },
+    isMarkdown() {
+      if (!this.fileData) return false;
+      const ext = String(this.fileData.ext || '').toLowerCase();
+      return ext === 'md';
+    },
+    markdownHtml() {
+      if (!this.textContent) return '';
+      
+      // 配置 marked 使用 highlight.js
+      marked.setOptions({
+        highlight: function(code, lang) {
+          const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+          return hljs.highlight(code, { language }).value;
+        },
+        langPrefix: 'hljs language-', // 兼容 highlight.js 样式
+        breaks: true,
+        gfm: true
+      });
+      
+      return marked.parse(this.textContent);
     },
     previewUrl() {
       if (!this.fileData) return '';
@@ -596,10 +623,18 @@ export default {
         return;
       }
       
+      const newFile = this.updateFileList[0].raw;
+      const originalFileName = this.fileData.fileName || this.fileData.label;
+      
+      if (newFile.name !== originalFileName) {
+        this.$message.error(`文件名不一致！请上传名为 "${originalFileName}" 的文件`);
+        return;
+      }
+      
       this.updating = true;
       try {
         const formData = new FormData();
-        formData.append('file', this.updateFileList[0].raw);
+        formData.append('file', newFile);
         
         const res = await updateAsset(this.fileData.id, formData);
         this.$message.success('文件更新成功');
@@ -808,6 +843,81 @@ export default {
   font-size: 14px;
   line-height: 1.6;
   color: #303133;
+}
+
+/* Markdown 预览样式 */
+.markdown-body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  color: #24292e;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 0.3em;
+}
+
+.markdown-body p {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body code {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(27,31,35,0.05);
+  border-radius: 3px;
+}
+
+.markdown-body pre {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 3px;
+  margin-bottom: 16px;
+}
+
+.markdown-body pre code {
+  display: inline;
+  max-width: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  background-color: transparent;
+  border: 0;
+}
+
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  margin-top: 0;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.markdown-body table th, .markdown-body table td {
+  padding: 6px 13px;
+  border: 1px solid #dfe2e5;
+}
+
+.markdown-body table tr {
+  background-color: #fff;
+  border-top: 1px solid #c6cbd1;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #f6f8fa;
 }
 
 .empty-text {

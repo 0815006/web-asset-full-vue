@@ -388,6 +388,7 @@ export default {
             nodeType: 2, // All results within a product are files/docs
             isProduct: false,
             path: [this.product.name], // Path starts with the product name
+            zoneName: this.product.name, // Add zoneName for SearchResultDialog
             context: item.highlight || item.text || '暂无内容预览',
             sourceTree: this.assetTreeData, // The source tree is the product's own asset tree
             ...item

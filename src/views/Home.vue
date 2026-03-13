@@ -239,16 +239,6 @@ export default {
       }, {});
     }
   },
-  watch: {
-    techSearchQuery(val) {
-      this.$refs.techTreeTab && this.$refs.techTreeTab.filter(val);
-      this.$refs.techTreeVertical && this.$refs.techTreeVertical.filter(val);
-    },
-    mgmtSearchQuery(val) {
-      this.$refs.mgmtTreeTab && this.$refs.mgmtTreeTab.filter(val);
-      this.$refs.mgmtTreeVertical && this.$refs.mgmtTreeVertical.filter(val);
-    }
-  },
   created() {
     this.fetchData();
   },
@@ -370,16 +360,9 @@ export default {
         let results = [];
         if (res && Array.isArray(res)) {
           results = res.map(item => {
-            // According to user feedback, zone_type is the product_id for products.
-            const isProduct = item.zone_type && !isNaN(parseInt(item.zone_type));
-            
             let zoneName = '未知区域';
 
-            if (item.zone_type === 'product') {
-              path = [item.zone_name || '产品专区'];
-              // For products, we need to fetch the tree on demand
-              sourceTree = []; 
-            } else if (item.zone_type === 'tech') {
+            if (item.zone_type === 'tech') {
               zoneName = '测试技术及工艺专区';
             } else if (item.zone_type === 'mgmt') {
               zoneName = '测试管理专区';

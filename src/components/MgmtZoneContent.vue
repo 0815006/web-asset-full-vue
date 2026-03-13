@@ -13,7 +13,7 @@
           :value="searchQuery"
           @input="$emit('update:searchQuery', $event)"
           size="small"
-          style="width: 200px;"
+          style="width: 300px;"
           @keyup.enter.native="$emit('search', searchQuery)"
           clearable>
           <el-button slot="append" icon="el-icon-search" @click="$emit('search', searchQuery)"></el-button>
@@ -24,7 +24,6 @@
         :key="treeKey"
         :data="treeData"
         :props="defaultProps"
-        :filter-node-method="filterNode"
         ref="tree"
         lazy
         :load="loadNode"
@@ -158,9 +157,6 @@ export default {
     }
   },
   watch: {
-    searchQuery(val) {
-      this.$refs.tree.filter(val);
-    },
     treeData: {
       handler() {
         this.treeKey++;
@@ -188,10 +184,6 @@ export default {
       } else {
         resolve([]);
       }
-    },
-    filterNode(value, data) {
-      if (!value) return true;
-      return data.fileName.indexOf(value) !== -1;
     },
     handleNodeClick(data, node, component) {
       this.$emit('node-click', data, node, component);
