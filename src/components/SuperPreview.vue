@@ -70,46 +70,19 @@
 
           <template v-else>
             <!-- PDF 预览 -->
-            <iframe
-              v-if="activeType === 'pdf'"
-              :src="previewUrl"
-              width="100%"
-              height="100%"
-              frameborder="0"
-              class="pdf-viewer">
-            </iframe>
+            <pdf-viewer v-if="activeType === 'pdf'" :url="previewUrl" />
             
             <!-- 图片预览 -->
-            <div v-else-if="activeType === 'image'" class="image-viewer">
-              <el-image 
-                :src="previewUrl" 
-                fit="contain"
-                :preview-src-list="[previewUrl]">
-              </el-image>
-            </div>
+            <image-viewer v-else-if="activeType === 'image'" :url="previewUrl" />
             
             <!-- Office 预览 (OnlyOffice) -->
-            <div v-if="activeType === 'office'" class="office-viewer-wrapper" style="width: 100%; height: 100%;">
-              <div id="office-editor-container" class="office-viewer"></div>
-            </div>
+            <office-viewer v-if="activeType === 'office'" :file-data="fileData" :absolute-file-url="absoluteFileUrl" />
             
             <!-- XMind 预览 -->
-            <div v-else-if="activeType === 'xmind'" class="xmind-viewer-wrapper" style="width: 100%; height: 100%; position: relative;">
-              <div v-if="xmindLoading" class="xmind-loading-overlay">
-                <el-progress type="circle" :percentage="downloadProgress" :status="downloadProgress === 100 ? 'success' : null"></el-progress>
-                <p class="loading-text">正在加载思维导图...</p>
-              </div>
-              <div id="xmind-container" class="xmind-viewer"></div>
-            </div>
+            <xmind-viewer v-else-if="activeType === 'xmind'" :preview-url="previewUrl" :file-data="fileData" />
             
-          <!-- 文本预览 -->
-          <div v-else-if="activeType === 'text'" class="text-viewer" v-loading="textLoading">
-            <template v-if="isMarkdown">
-              <div class="markdown-body" v-html="markdownHtml"></div>
-            </template>
-            <pre v-else-if="textContent">{{ textContent }}</pre>
-            <div v-else-if="!textLoading" class="empty-text">文件内容为空</div>
-          </div>
+            <!-- 文本预览 -->
+            <text-viewer v-else-if="activeType === 'text'" :preview-url="previewUrl" :file-data="fileData" :is-markdown="isMarkdown" />
 
             <!-- 不支持预览 -->
             <div v-else-if="activeType === 'unsupported'" class="unsupported-preview">
@@ -127,44 +100,33 @@
     </div>
 
     <!-- 更新文件弹窗 -->
-    <el-dialog
-      title="更新文件版本"
+    <update-file-dialog
       :visible.sync="updateDialogVisible"
-      width="400px"
-      append-to-body>
-      <div class="update-info">
-        <p>您正在更新：<strong>{{ fileData ? fileData.label : '' }}</strong></p>
-        <p class="tip">上传新文件将覆盖原物理文件，并生成新的版本号。</p>
-      </div>
-      <el-upload
-        class="update-upload"
-        drag
-        action="#"
-        :auto-upload="false"
-        :on-change="handleUpdateFileChange"
-        :limit="1"
-        :file-list="updateFileList">
-        <i class="el-icon-upload"></i>
-        <div class="el-upload__text">将新文件拖到此处，或<em>点击上传</em></div>
-      </el-upload>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="updateDialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="submitUpdate" :loading="updating">确 定</el-button>
-      </div>
-    </el-dialog>
+      :file-data="fileData"
+      @update-success="handleUpdateSuccess"
+    />
   </el-dialog>
 </template>
 
 <script>
-import request from '@/utils/request'
-import { getAssetTree, downloadAssets, updateAsset } from '@/api/asset-node'
-import XMindViewer from '@hyjiacan/xmind-viewer'
-import G6 from '@antv/g6'
-import { marked } from 'marked'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github.css' // 引用 github 风格的代码高亮样式
+import { getAssetTree, downloadAssets } from '@/api/asset-node'
+import PdfViewer from './viewers/PdfViewer.vue'
+import ImageViewer from './viewers/ImageViewer.vue'
+import OfficeViewer from './viewers/OfficeViewer.vue'
+import XmindViewer from './viewers/XmindViewer.vue'
+import TextViewer from './viewers/TextViewer.vue'
+import UpdateFileDialog from './UpdateFileDialog.vue'
 
 export default {
+  name: 'SuperPreview',
+  components: {
+    PdfViewer,
+    ImageViewer,
+    OfficeViewer,
+    XmindViewer,
+    TextViewer,
+    UpdateFileDialog
+  },
   name: 'SuperPreview',
   props: {
     visible: {
@@ -193,17 +155,9 @@ export default {
         isLeaf: 'leaf'
       },
       expandedKeys: [],
-      textContent: '',
-      textLoading: false,
       fileMissing: false,
-      docEditor: null,
-      xmindViewer: null,
-      xmindLoading: false,
-      downloadProgress: 0,
       activeType: '', // 当前正在显示的类型：pdf, image, office, xmind, text
-      updateDialogVisible: false,
-      updateFileList: [],
-      updating: false
+      updateDialogVisible: false
     }
   },
   computed: {
@@ -252,42 +206,9 @@ export default {
       const ext = String(this.fileData.ext || '').toLowerCase();
       return ext === 'md';
     },
-    markdownHtml() {
-      if (!this.textContent) return '';
-      
-      // 配置 marked 使用 highlight.js
-      marked.setOptions({
-        highlight: function(code, lang) {
-          const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-          return hljs.highlight(code, { language }).value;
-        },
-        langPrefix: 'hljs language-', // 兼容 highlight.js 样式
-        breaks: true,
-        gfm: true
-      });
-      
-      return marked.parse(this.textContent);
-    },
     previewUrl() {
       if (!this.fileData) return '';
       return `/api/assets/${this.fileData.id}/view`;
-    },
-    // OnlyOffice 需要一个绝对地址，且 Docker 容器必须能访问到
-    absoluteFileUrl() {
-      if (!this.fileData) return '';
-      // 优先使用当前页面的域名/IP，如果是 localhost，则尝试使用配置文件中的后端地址
-      const host = window.location.hostname;
-      let apiBase = process.env.VUE_APP_BACKEND_API_BASE || `http://${host}:8081`;
-      
-      if (host === 'localhost' || host === '127.0.0.1') {
-        // 如果是本地访问，强制使用配置文件中指定的 IP (如 172.20.10.4) 供 Docker 访问
-        // 如果环境变量没配，则兜底使用 host.docker.internal
-        if (!process.env.VUE_APP_BACKEND_API_BASE) {
-          apiBase = `http://host.docker.internal:8081`;
-        }
-      }
-      
-      return `${apiBase}/assets/${this.fileData.id}/view`;
     }
   },
   watch: {
@@ -305,16 +226,13 @@ export default {
       deep: true
     }
   },
-  beforeDestroy() {
-    this.destroyAllViewers();
-  },
   methods: {
     async initPreview() {
       this.fileMissing = false;
       const currentId = this.fileData.id;
       
       // 1. 销毁所有旧的编辑器/查看器
-      this.destroyAllViewers();
+      this.activeType = '';
       
       // 2. 自动展开目录树
       if (this.fileData.treePath && typeof this.fileData.treePath === 'string') {
@@ -351,159 +269,6 @@ export default {
         else if (this.isXmind) this.activeType = 'xmind';
         else if (this.isText) this.activeType = 'text';
         else this.activeType = 'unsupported';
-
-        // 5. 初始化对应的查看器
-        if (this.activeType === 'text') {
-          this.fetchTextContent();
-        } else if (this.activeType === 'office') {
-          this.$nextTick(() => {
-            // 再次检查 ID，确保在 nextTick 触发时还是同一个文件
-            if (this.fileData.id === currentId) {
-              this.initOfficeEditor();
-            }
-          });
-        } else if (this.activeType === 'xmind') {
-          this.$nextTick(() => {
-            if (this.fileData.id === currentId) {
-              this.initXmindViewer();
-            }
-          });
-        }
-      }
-    },
-    async initXmindViewer() {
-      this.xmindLoading = true;
-      this.downloadProgress = 0;
-      try {
-        const response = await request({
-          url: this.previewUrl,
-          method: 'get',
-          responseType: 'arraybuffer', // 改为 arraybuffer 以供 XMindViewer 解析
-          onDownloadProgress: (progressEvent) => {
-            if (progressEvent.lengthComputable) {
-              this.downloadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            } else {
-              this.downloadProgress = Math.min(this.downloadProgress + 10, 90);
-            }
-          }
-        });
-        
-        const buffer = response; // request 拦截器中如果是 arraybuffer 会直接返回 data
-        
-        const container = document.getElementById('xmind-container');
-        if (container) {
-          container.innerHTML = '';
-          // 使用本地离线渲染组件
-          console.log("XMindViewer object:", XMindViewer);
-          console.log("G6 object:", G6);
-          this.xmindViewer = await XMindViewer.viewer.render(container, buffer, { G6 });
-        }
-      } catch (e) {
-        console.error('XMind preview failed', e);
-        this.$message.error('XMind 预览失败，请检查文件格式或网络状态');
-      } finally {
-        this.xmindLoading = false;
-        this.downloadProgress = 0;
-      }
-    },
-    initOfficeEditor() {
-      if (typeof DocsAPI === 'undefined') {
-        this.$message.error('OnlyOffice SDK 未加载，请检查网络或 Docker 服务状态');
-        return;
-      }
-
-      const ext = String(this.fileData.ext || '').toLowerCase();
-      let documentType = 'word';
-      if (['xlsx', 'xls', 'csv'].includes(ext)) documentType = 'cell';
-      if (['pptx', 'ppt'].includes(ext)) documentType = 'slide';
-
-      try {
-        this.docEditor = new DocsAPI.DocEditor("office-editor-container", {
-          "document": {
-            "fileType": ext,
-            "key": "file_" + this.fileData.id + "_" + new Date().getTime(), // 增加时间戳防止缓存
-            "title": this.fileData.label,
-            "url": this.absoluteFileUrl,
-            "permissions": {
-              "comment": false,
-              "download": true, // 允许下载
-              "edit": false,    // 禁止编辑
-              "fillForms": false,
-              "print": true,    // 允许打印
-              "review": false
-            }
-          },
-          "documentType": documentType,
-          "editorConfig": {
-            "lang": "zh-CN",
-            "mode": "view", // 默认只读预览模式
-            "user": {
-              "id": localStorage.getItem('userId') || "visitor",
-              "name": localStorage.getItem('userName') || "访客"
-            },
-            "callbackUrl": this.absoluteFileUrl.replace('/view', '/callback'),
-            "customization": {
-              "autosave": false,
-              "chat": false,
-              "comments": false,
-              "help": false,
-              "hideRightMenu": false,
-              "toolbar": true,
-              "header": true,
-              "plugins": false, // 隐藏插件菜单
-              "macros": false   // 隐藏宏
-            }
-          },
-          "height": "100%",
-          "width": "100%"
-        });
-      } catch (e) {
-        console.error('OnlyOffice init failed', e);
-        this.$message.error('Office 预览初始化失败');
-      }
-    },
-    destroyAllViewers() {
-      // 销毁 Office 编辑器
-      this.destroyOfficeEditor();
-      
-      // 销毁 XMind 查看器
-      if (this.xmindViewer) {
-        try {
-          if (typeof this.xmindViewer.destroy === 'function') {
-            this.xmindViewer.destroy();
-          }
-        } catch (e) {
-          console.warn('XMind destroy failed', e);
-        }
-        this.xmindViewer = null;
-      }
-      
-      // 清空文本内容
-      this.textContent = '';
-      this.textLoading = false;
-      
-      // 清空 XMind 容器
-      const xmindContainer = document.getElementById('xmind-container');
-      if (xmindContainer) {
-        xmindContainer.innerHTML = '';
-      }
-      
-      // 重置活动类型
-      this.activeType = '';
-    },
-    destroyOfficeEditor() {
-      if (this.docEditor) {
-        try {
-          this.docEditor.destroyEditor();
-        } catch (e) {
-          console.warn('OnlyOffice destroy failed', e);
-        }
-        this.docEditor = null;
-      }
-      // 强制清空容器，防止残留的 iframe 导致卡顿
-      const container = document.getElementById('office-editor-container');
-      if (container) {
-        container.innerHTML = '';
       }
     },
     async checkFileExistence() {
@@ -514,23 +279,6 @@ export default {
         }
       } catch (error) {
         console.error('Check file existence failed', error);
-      }
-    },
-    async fetchTextContent() {
-      this.textLoading = true;
-      this.textContent = '';
-      try {
-        const response = await fetch(this.previewUrl);
-        if (response.ok) {
-          this.textContent = await response.text();
-        } else {
-          this.textContent = '获取文件内容失败';
-        }
-      } catch (error) {
-        console.error('Fetch text failed', error);
-        this.textContent = '获取文件内容出错';
-      } finally {
-        this.textLoading = false;
       }
     },
     handleOpened() {
@@ -585,7 +333,7 @@ export default {
     },
     closePreview() {
       this.localVisible = false;
-      this.destroyOfficeEditor();
+      this.activeType = ''; // 触发子组件销毁
       // Reset fullscreen state when closing
       setTimeout(() => {
         this.isFullscreen = false;
@@ -612,41 +360,10 @@ export default {
     },
     showUpdateDialog() {
       this.updateDialogVisible = true;
-      this.updateFileList = [];
     },
-    handleUpdateFileChange(file, fileList) {
-      this.updateFileList = fileList;
-    },
-    async submitUpdate() {
-      if (this.updateFileList.length === 0) {
-        this.$message.warning('请选择要上传的新文件');
-        return;
-      }
-      
-      const newFile = this.updateFileList[0].raw;
-      const originalFileName = this.fileData.fileName || this.fileData.label;
-      
-      if (newFile.name !== originalFileName) {
-        this.$message.error(`文件名不一致！请上传名为 "${originalFileName}" 的文件`);
-        return;
-      }
-      
-      this.updating = true;
-      try {
-        const formData = new FormData();
-        formData.append('file', newFile);
-        
-        const res = await updateAsset(this.fileData.id, formData);
-        this.$message.success('文件更新成功');
-        this.updateDialogVisible = false;
-        
-        // 刷新当前预览
-        this.$emit('node-click', { ...this.fileData, ...res });
-      } catch (error) {
-        console.error('更新失败', error);
-      } finally {
-        this.updating = false;
-      }
+    handleUpdateSuccess(res) {
+      // 刷新当前预览
+      this.$emit('node-click', { ...this.fileData, ...res });
     }
   }
 }
@@ -773,161 +490,6 @@ export default {
   flex-direction: column;
 }
 
-.pdf-viewer {
-  width: 100%;
-  height: 100%;
-  border: none;
-}
-
-.image-viewer {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f0f2f5;
-  padding: 20px;
-}
-
-.image-viewer .el-image {
-  max-width: 100%;
-  max-height: 100%;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
-}
-
-.office-viewer {
-  width: 100%;
-  height: 100%;
-  background-color: #fff;
-}
-
-.xmind-viewer {
-  width: 100%;
-  height: 100%;
-  background-color: #fff;
-}
-
-.xmind-loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.xmind-loading-overlay .loading-text {
-  margin-top: 15px;
-  color: #606266;
-  font-size: 14px;
-}
-
-.text-viewer {
-  width: 100%;
-  height: 100%;
-  background-color: #fff;
-  padding: 30px;
-  overflow-y: auto;
-}
-
-.text-viewer pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #303133;
-}
-
-/* Markdown 预览样式 */
-.markdown-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  word-wrap: break-word;
-  color: #24292e;
-}
-
-.markdown-body h1, .markdown-body h2, .markdown-body h3 {
-  margin-top: 24px;
-  margin-bottom: 16px;
-  font-weight: 600;
-  line-height: 1.25;
-  border-bottom: 1px solid #eaecef;
-  padding-bottom: 0.3em;
-}
-
-.markdown-body p {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.markdown-body code {
-  padding: 0.2em 0.4em;
-  margin: 0;
-  font-size: 85%;
-  background-color: rgba(27,31,35,0.05);
-  border-radius: 3px;
-}
-
-.markdown-body pre {
-  padding: 16px;
-  overflow: auto;
-  font-size: 85%;
-  line-height: 1.45;
-  background-color: #f6f8fa;
-  border-radius: 3px;
-  margin-bottom: 16px;
-}
-
-.markdown-body pre code {
-  display: inline;
-  max-width: auto;
-  padding: 0;
-  margin: 0;
-  overflow: visible;
-  line-height: inherit;
-  word-wrap: normal;
-  background-color: transparent;
-  border: 0;
-}
-
-.markdown-body table {
-  border-spacing: 0;
-  border-collapse: collapse;
-  margin-top: 0;
-  margin-bottom: 16px;
-  width: 100%;
-}
-
-.markdown-body table th, .markdown-body table td {
-  padding: 6px 13px;
-  border: 1px solid #dfe2e5;
-}
-
-.markdown-body table tr {
-  background-color: #fff;
-  border-top: 1px solid #c6cbd1;
-}
-
-.markdown-body table tr:nth-child(2n) {
-  background-color: #f6f8fa;
-}
-
-.empty-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: #909399;
-}
-
 .missing-file-warning {
   display: flex;
   flex-direction: column;
@@ -1001,20 +563,5 @@ export default {
   font-size: 64px;
   margin-bottom: 20px;
   color: #c0c4cc;
-}
-
-.update-info {
-  margin-bottom: 20px;
-  color: #606266;
-}
-
-.update-info .tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 5px;
-}
-
-.update-upload {
-  text-align: center;
 }
 </style>
