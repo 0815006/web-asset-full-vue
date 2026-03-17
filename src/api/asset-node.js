@@ -95,3 +95,75 @@ export function getAssetDetails(id) {
     method: 'get'
   })
 }
+
+export function getBatchDetails(data) {
+  return request({
+    url: '/api/assets/batch-details',
+    method: 'post',
+    data
+  })
+}
+
+// 新增 API
+export function recordReadState(data) {
+  return request({
+    url: '/api/assets/record-read-state',
+    method: 'post',
+    data
+  })
+}
+
+export function getMyStarredFiles(params) {
+  return request({
+    url: '/api/assets/my-stars',
+    method: 'get',
+    params
+  })
+}
+
+export function starFile(fileId, params) {
+  return request({
+    url: `/api/assets/star/${fileId}`,
+    method: 'post',
+    params
+  })
+}
+
+export function unstarFile(fileId, params) {
+  return request({
+    url: `/api/assets/star/${fileId}`,
+    method: 'delete',
+    params
+  })
+}
+
+export function pinFile(fileId, params) {
+  return request({
+    url: `/api/assets/star/${fileId}/pin`,
+    method: 'post',
+    params
+  })
+}
+
+export function getLatestUpdates(params) {
+  return request({
+    url: '/api/assets/latest-updates',
+    method: 'get',
+    params
+  })
+}
+
+export function getCuratedAssets(productId) {
+  return request({
+    url: `/api/assets/curated/${productId}`,
+    method: 'get'
+  })
+}
+
+export function getProductUseTop(productId, params) {
+  return request({
+    url: `/api/assets/product-use-top/${productId}`,
+    method: 'get',
+    params
+  })
+}

@@ -1,119 +1,124 @@
 <template>
-  <div class="product-detail-container" v-loading="loading">
-    <div class="header">
-      <div class="breadcrumb">
-        <el-breadcrumb separator-class="el-icon-arrow-right">
-          <el-breadcrumb-item :to="{ path: '/' }">资产全景</el-breadcrumb-item>
-          <el-breadcrumb-item>产品详情</el-breadcrumb-item>
-          <el-breadcrumb-item>{{ product.name }}</el-breadcrumb-item>
-        </el-breadcrumb>
+  <div class="product-detail-wrapper" v-loading="loading">
+    <!-- 顶部导航栏组件 -->
+    <main-header active-tab="business-landscape" />
+
+    <div class="product-detail-container">
+      <div class="header">
+        <div class="breadcrumb">
+          <el-breadcrumb separator-class="el-icon-arrow-right">
+            <el-breadcrumb-item :to="{ path: '/', query: { tab: 'business-landscape' } }">业务版图</el-breadcrumb-item>
+            <el-breadcrumb-item>产品详情</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ product.name }}</el-breadcrumb-item>
+          </el-breadcrumb>
+        </div>
+        <div class="local-search">
+          <el-input
+            placeholder="在当前产品下搜索..."
+            v-model="localSearchQuery"
+            class="search-input"
+            @keyup.enter.native="performSearch(localSearchQuery)"
+            clearable>
+            <el-button slot="append" icon="el-icon-search" type="primary" @click="performSearch(localSearchQuery)"></el-button>
+          </el-input>
+        </div>
       </div>
-      <div class="local-search">
-        <el-input
-          placeholder="在当前产品下搜索..."
-          v-model="localSearchQuery"
-          class="search-input"
-          @keyup.enter.native="performSearch(localSearchQuery)"
-          clearable>
-          <el-button slot="append" icon="el-icon-search" type="primary" @click="performSearch(localSearchQuery)"></el-button>
-        </el-input>
+
+      <div class="main-content">
+        <el-row :gutter="20">
+          <!-- 左侧：产品画像与知识图谱 -->
+          <el-col :span="8">
+            <el-card class="box-card profile-card">
+              <div slot="header" class="clearfix">
+                <span>产品画像</span>
+                <el-tag size="small" style="float: right;">{{ product.status }}</el-tag>
+              </div>
+              <div class="profile-info">
+                <div class="info-item">
+                  <span class="label">产品名称：</span>
+                  <span class="value">{{ product.name }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">所属团队：</span>
+                  <span class="value">{{ product.team }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">业务领域：</span>
+                  <span class="value">{{ product.domain }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">负责人：</span>
+                  <span class="value">{{ product.owner }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">资产总数：</span>
+                  <span class="value highlight">{{ product.assetCount }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">最近更新：</span>
+                  <span class="value">{{ product.updateTime }}</span>
+                </div>
+              </div>
+            </el-card>
+
+            <el-card class="box-card graph-card" style="margin-top: 20px;">
+              <div slot="header" class="clearfix">
+                <span>知识图谱</span>
+              </div>
+              <div class="graph-container">
+                <!-- 模拟知识图谱可视化 -->
+                <div class="mock-graph">
+                  <div class="node center-node">{{ product.name }}</div>
+                  <div class="node sub-node node-1">核心系统</div>
+                  <div class="node sub-node node-2">支付网关</div>
+                  <div class="node sub-node node-3">风控引擎</div>
+                  <svg class="lines">
+                    <line x1="50%" y1="50%" x2="20%" y2="20%" stroke="#409EFF" stroke-width="2"/>
+                    <line x1="50%" y1="50%" x2="80%" y2="30%" stroke="#409EFF" stroke-width="2"/>
+                    <line x1="50%" y1="50%" x2="50%" y2="80%" stroke="#409EFF" stroke-width="2"/>
+                  </svg>
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+
+          <!-- 右侧：文档资产库 -->
+          <el-col :span="16">
+            <el-card class="box-card assets-card">
+              <div slot="header" class="clearfix assets-header">
+                <span>文档资产库</span>
+                <div class="actions">
+                  <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog" v-if="canUpload">上传文档</el-button>
+                  <el-button size="small" icon="el-icon-download" @click="batchDownload" v-if="canDownload">打包下载</el-button>
+                </div>
+              </div>
+
+              <el-tree
+                :key="treeKey"
+                :data="assetTreeData"
+                :props="defaultProps"
+                :filter-node-method="filterNode"
+                ref="assetTree"
+                node-key="id"
+                lazy
+                :load="loadNode"
+                show-checkbox
+                @node-click="handleNodeClick"
+                class="custom-tree">
+                <span class="custom-tree-node" slot-scope="{ node, data }">
+                  <span>
+                    <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
+                    <span>{{ node.label }}</span>
+                  </span>
+                  <span class="node-actions" v-if="data.nodeType === 1 && data.currentUserPermission && data.currentUserPermission.can_upload">
+                    <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(node, data)">新建子分类</el-button>
+                  </span>
+                </span>
+              </el-tree>
+            </el-card>
+          </el-col>
+        </el-row>
       </div>
-    </div>
-
-    <div class="main-content">
-      <el-row :gutter="20">
-        <!-- 左侧：产品画像与知识图谱 -->
-        <el-col :span="8">
-          <el-card class="box-card profile-card">
-            <div slot="header" class="clearfix">
-              <span>产品画像</span>
-              <el-tag size="small" style="float: right;">{{ product.status }}</el-tag>
-            </div>
-            <div class="profile-info">
-              <div class="info-item">
-                <span class="label">产品名称：</span>
-                <span class="value">{{ product.name }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">所属团队：</span>
-                <span class="value">{{ product.team }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">业务领域：</span>
-                <span class="value">{{ product.domain }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">负责人：</span>
-                <span class="value">{{ product.owner }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">资产总数：</span>
-                <span class="value highlight">{{ product.assetCount }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">最近更新：</span>
-                <span class="value">{{ product.updateTime }}</span>
-              </div>
-            </div>
-          </el-card>
-
-          <el-card class="box-card graph-card" style="margin-top: 20px;">
-            <div slot="header" class="clearfix">
-              <span>知识图谱</span>
-            </div>
-            <div class="graph-container">
-              <!-- 模拟知识图谱可视化 -->
-              <div class="mock-graph">
-                <div class="node center-node">{{ product.name }}</div>
-                <div class="node sub-node node-1">核心系统</div>
-                <div class="node sub-node node-2">支付网关</div>
-                <div class="node sub-node node-3">风控引擎</div>
-                <svg class="lines">
-                  <line x1="50%" y1="50%" x2="20%" y2="20%" stroke="#409EFF" stroke-width="2"/>
-                  <line x1="50%" y1="50%" x2="80%" y2="30%" stroke="#409EFF" stroke-width="2"/>
-                  <line x1="50%" y1="50%" x2="50%" y2="80%" stroke="#409EFF" stroke-width="2"/>
-                </svg>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
-
-        <!-- 右侧：文档资产库 -->
-        <el-col :span="16">
-          <el-card class="box-card assets-card">
-            <div slot="header" class="clearfix assets-header">
-              <span>文档资产库</span>
-              <div class="actions">
-                <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog" v-if="canUpload">上传文档</el-button>
-                <el-button size="small" icon="el-icon-download" @click="batchDownload" v-if="canDownload">打包下载</el-button>
-              </div>
-            </div>
-
-            <el-tree
-              :key="treeKey"
-              :data="assetTreeData"
-              :props="defaultProps"
-              :filter-node-method="filterNode"
-              ref="assetTree"
-              node-key="id"
-              lazy
-              :load="loadNode"
-              show-checkbox
-              @node-click="handleNodeClick"
-              class="custom-tree">
-              <span class="custom-tree-node" slot-scope="{ node, data }">
-                <span>
-                  <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
-                  <span>{{ node.label }}</span>
-                </span>
-                <span class="node-actions" v-if="data.nodeType === 1 && data.currentUserPermission && data.currentUserPermission.can_upload">
-                  <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(node, data)">新建子分类</el-button>
-                </span>
-              </span>
-            </el-tree>
-          </el-card>
-        </el-col>
-      </el-row>
     </div>
 
     <!-- 上传弹窗 -->
@@ -194,15 +199,17 @@
 </template>
 
 <script>
+import MainHeader from '../components/MainHeader.vue'
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
-import { getProductList } from '@/api/product' // Use getProductList to find product by ID locally or implement getProduct in api
+import { getProductList } from '@/api/product'
 import { getAssetTree, uploadFile, createFolder, downloadAssets, getAssetDetails } from '@/api/asset-node'
 import { search } from '@/api/search'
 
 export default {
   name: 'ProductDetail',
   components: {
+    MainHeader,
     SuperPreview,
     SearchResultDialog
   },
@@ -265,8 +272,6 @@ export default {
       canDownload: true, // Mock permission
     }
   },
-  computed: {
-  },
   created() {
     this.fetchData();
   },
@@ -290,7 +295,6 @@ export default {
     },
     handleCascaderNodeClick(node) {
       this.uploadForm.categoryId = node.path;
-      // 如果有子节点且未展开，则展开它
       if (!node.isLeaf) {
         node.expand();
       }
@@ -298,7 +302,6 @@ export default {
     async fetchData() {
       this.loading = true;
       try {
-        // 1. Get Product Details
         const productsRes = await getProductList();
         const productData = (productsRes || []).find(p => p.id == this.product.id);
         
@@ -362,8 +365,15 @@ export default {
         this.previewVisible = true;
       }
     },
-    handlePreviewNodeClick(data) {
-      this.currentPreviewFile = data;
+    async handlePreviewNodeClick(data) {
+      if (data.nodeType === 2) {
+        try {
+          const fileDetails = await getAssetDetails(data.id);
+          this.currentPreviewFile = { ...data, ...fileDetails };
+        } catch (e) {
+          this.currentPreviewFile = data;
+        }
+      }
     },
     async performSearch(query) {
       if (!query) {
@@ -373,7 +383,6 @@ export default {
       
       this.loading = true;
       try {
-        // For product-specific search, we pass the productId
         const res = await search({ keyword: query, productId: this.product.id });
         
         let results = [];
@@ -385,12 +394,12 @@ export default {
             ext: item.ext,
             treePath: item.tree_path,
             productId: item.product_id,
-            nodeType: 2, // All results within a product are files/docs
+            nodeType: 2,
             isProduct: false,
-            path: [this.product.name], // Path starts with the product name
-            zoneName: this.product.name, // Add zoneName for SearchResultDialog
+            path: [this.product.name],
+            zoneName: this.product.name,
             context: item.highlight || item.text || '暂无内容预览',
-            sourceTree: this.assetTreeData, // The source tree is the product's own asset tree
+            sourceTree: this.assetTreeData,
             ...item
           }));
         }
@@ -399,7 +408,7 @@ export default {
         this.currentSearchQuery = query;
         this.searchResultVisible = true;
       } catch (error) {
-        console.error('Search failed with error:', error);
+        console.error('Search failed:', error);
         this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
         this.loading = false;
@@ -408,7 +417,7 @@ export default {
     showUploadDialog() {
       this.uploadDialogVisible = true;
       this.fileList = [];
-      this.cascaderKey++; // Force reset cascader to reload lazy data
+      this.cascaderKey++;
     },
     handleFileChange(file, fileList) {
       this.fileList = fileList;
@@ -442,7 +451,6 @@ export default {
         this.uploadDialogVisible = false;
         this.fileList = [];
         
-        // 局部刷新
         const parentNode = this.$refs.assetTree.getNode(parentId);
         if (parentNode) {
           parentNode.data.hasChildren = true;
@@ -452,11 +460,8 @@ export default {
         } else {
           this.refreshRoot();
         }
-        
       } catch (error) {
         console.error(error);
-        // 如果 request.js 已经报错了，这里可以不再弹窗，或者弹一个通用的
-        // 但为了保险，我们只在没有 response 时弹窗（网络错误等）
         if (!error.message || error.message.indexOf('timeout') > -1) {
           this.$message.error('上传请求超时或网络异常');
         }
@@ -476,8 +481,6 @@ export default {
       this.loading = true;
       try {
         const response = await downloadAssets({ file_ids: fileIds });
-        
-        // 处理 Blob 下载
         const blob = new Blob([response], { type: 'application/zip' });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -487,12 +490,9 @@ export default {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
         this.$message.success(`已成功打包下载 ${checkedNodes.length} 个节点`);
       } catch (error) {
         console.error('下载失败', error);
-        // 如果是后端返回的错误（比如数量限制），request.js 应该已经处理了弹窗
-        // 但如果是下载过程中的其他错误，这里可以兜底
       } finally {
         this.loading = false;
       }
@@ -522,15 +522,12 @@ export default {
         });
         this.$message.success('创建成功');
         this.newFolderDialogVisible = false;
-        
-        // 局部刷新
         if (this.currentNode) {
           this.currentNode.data.hasChildren = true;
           this.currentNode.isLeaf = false;
           this.currentNode.loaded = false;
           this.currentNode.expand();
         } else {
-          // 如果没有当前节点（理论上不会），则刷新根
           this.refreshRoot();
         }
       } catch (e) {
@@ -570,6 +567,11 @@ export default {
 </script>
 
 <style scoped>
+.product-detail-wrapper {
+  min-height: 100vh;
+  background-color: #f5f7fa;
+}
+
 .product-detail-container {
   padding: 20px;
   max-width: 1400px;
@@ -648,11 +650,6 @@ export default {
   color: #909399;
 }
 
-.fixed-category {
-  font-weight: bold;
-  color: #303133;
-}
-
 .node-actions {
   display: none;
 }
@@ -661,7 +658,6 @@ export default {
   display: inline-block;
 }
 
-/* 模拟知识图谱样式 */
 .graph-container {
   height: 300px;
   position: relative;
@@ -714,7 +710,6 @@ export default {
 </style>
 
 <style>
-/* 让级联选择器在任意一级都可以点击文字选中 */
 .category-cascader .el-cascader-panel .el-radio {
   width: 100%;
   height: 100%;
@@ -724,7 +719,7 @@ export default {
   left: 0;
   display: flex;
   align-items: center;
-  pointer-events: none; /* 让点击穿透到节点，触发展开 */
+  pointer-events: none;
 }
 
 .category-cascader .el-cascader-panel .el-radio__input {

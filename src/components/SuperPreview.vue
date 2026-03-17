@@ -13,6 +13,14 @@
         <span class="preview-title" :title="fileData ? fileData.label : ''">
           {{ fileData ? fileData.label : '文件预览' }}
         </span>
+        <!-- 收藏按钮 -->
+        <el-tooltip :content="isStarred ? '取消收藏' : '收藏文件'" placement="top">
+          <i 
+            :class="isStarred ? 'el-icon-star-on' : 'el-icon-star-off'" 
+            class="star-icon"
+            @click="toggleStar">
+          </i>
+        </el-tooltip>
       </div>
       <div class="header-right">
         <el-button type="warning" size="small" icon="el-icon-refresh" plain @click="showUpdateDialog">更新</el-button>
@@ -109,7 +117,7 @@
 </template>
 
 <script>
-import { getAssetTree, downloadAssets } from '@/api/asset-node'
+import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile } from '@/api/asset-node'
 import PdfViewer from './viewers/PdfViewer.vue'
 import ImageViewer from './viewers/ImageViewer.vue'
 import OfficeViewer from './viewers/OfficeViewer.vue'
@@ -127,7 +135,6 @@ export default {
     TextViewer,
     UpdateFileDialog
   },
-  name: 'SuperPreview',
   props: {
     visible: {
       type: Boolean,
@@ -157,7 +164,8 @@ export default {
       expandedKeys: [],
       fileMissing: false,
       activeType: '', // 当前正在显示的类型：pdf, image, office, xmind, text
-      updateDialogVisible: false
+      updateDialogVisible: false,
+      isStarred: false
     }
   },
   computed: {
@@ -209,6 +217,14 @@ export default {
     previewUrl() {
       if (!this.fileData) return '';
       return `/api/assets/${this.fileData.id}/view`;
+    },
+    absoluteFileUrl() {
+      if (!this.fileData) return '';
+      // OnlyOffice 需要绝对路径。
+      // 假设后端运行在宿主机的 8081 端口。
+      // 在 Docker 容器内访问宿主机可以使用 host.docker.internal (Windows/Mac)
+      const baseUrl = process.env.VUE_APP_BACKEND_API_BASE || 'http://host.docker.internal:8081';
+      return `${baseUrl}/api/assets/${this.fileData.id}/view`;
     }
   },
   watch: {
@@ -234,7 +250,10 @@ export default {
       // 1. 销毁所有旧的编辑器/查看器
       this.activeType = '';
       
-      // 2. 自动展开目录树
+      // 2. 设置收藏状态
+      this.isStarred = !!this.fileData.isStarred;
+
+      // 3. 自动展开目录树
       if (this.fileData.treePath && typeof this.fileData.treePath === 'string') {
         const ids = this.fileData.treePath.split('/').filter(id => id && id !== '0').map(id => parseInt(id));
         this.expandedKeys = ids;
@@ -255,20 +274,58 @@ export default {
         }
       });
 
-      // 3. 检查文件是否存在
+      // 4. 检查文件是否存在
       await this.checkFileExistence();
       
       // 如果在等待期间文件已经切换，则终止当前初始化
       if (this.fileData.id !== currentId) return;
 
       if (!this.fileMissing) {
-        // 4. 确定新的显示类型
+        // 5. 确定新的显示类型
         if (this.isPdf) this.activeType = 'pdf';
         else if (this.isImage) this.activeType = 'image';
         else if (this.isOffice) this.activeType = 'office';
         else if (this.isXmind) this.activeType = 'xmind';
         else if (this.isText) this.activeType = 'text';
         else this.activeType = 'unsupported';
+
+        // 6. 记录阅读状态并消除 New 标
+        this.recordRead();
+      }
+    },
+    async recordRead() {
+      if (!this.fileData) return;
+      try {
+        await recordReadState({ file_id: this.fileData.id, user_id: 2 }); // 假设用户ID为2
+        // 更新 Vuex 中的状态，实现秒级消除
+        if (this.$store) {
+          this.$store.commit('UPDATE_FILE_IS_NEW', { fileId: this.fileData.id, isNew: false });
+        }
+      } catch (e) {
+        console.warn('Record read state failed', e);
+      }
+    },
+    async toggleStar() {
+      if (!this.fileData) return;
+      const fileId = this.fileData.id;
+      const userId = 2; // 假设用户ID为2
+      try {
+        if (this.isStarred) {
+          await unstarFile(fileId, { userId });
+          this.isStarred = false;
+          if (this.fileData) this.fileData.isStarred = false;
+          this.$message.success('已取消收藏');
+        } else {
+          await starFile(fileId, { userId });
+          this.isStarred = true;
+          if (this.fileData) this.fileData.isStarred = true;
+          this.$message.success('收藏成功');
+        }
+        // 通知父组件更新数据（可选，用于同步列表状态）
+        this.$emit('star-change', { id: fileId, isStarred: this.isStarred });
+      } catch (error) {
+        console.error('Toggle star failed', error);
+        this.$message.error('操作失败');
       }
     },
     async checkFileExistence() {
@@ -426,6 +483,22 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.star-icon {
+  margin-left: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  color: #c0c4cc;
+  transition: all 0.3s;
+}
+
+.star-icon.el-icon-star-on {
+  color: #f7ba2a;
+}
+
+.star-icon:hover {
+  transform: scale(1.2);
 }
 
 .preview-body {

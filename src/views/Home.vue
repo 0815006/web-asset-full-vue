@@ -1,103 +1,104 @@
 <template>
   <div class="home-wrapper" v-loading="loading">
-    <!-- 醒目的大标题和搜索区域 -->
-    <div class="hero-section">
-      <div class="hero-content">
-        <h1 class="hero-title">测试资产全景</h1>
-        <div class="global-search-wrapper">
-          <el-input
-            placeholder="在全库中搜索文档、产品、规范..."
-            v-model="globalSearchQuery"
-            class="hero-search-input"
-            @keyup.enter.native="performSearch(globalSearchQuery, 'global')"
-            clearable>
-            <el-button slot="append" icon="el-icon-search" type="primary" @click="performSearch(globalSearchQuery, 'global')">搜索</el-button>
-          </el-input>
-        </div>
-      </div>
-    </div>
+    <!-- 顶部导航栏组件 -->
+    <main-header :active-tab.sync="activeTab" />
 
     <div class="home-container">
-      <div class="layout-controls" style="margin-bottom: 20px; display: flex; justify-content: flex-end; align-items: center;">
-        <el-button 
-          type="warning" 
-          size="small" 
-          icon="el-icon-monitor" 
-          style="margin-right: 10px;"
-          @click="healthCheckVisible = true">存储健康检查</el-button>
-        <el-button 
-          type="warning" 
-          size="small" 
-          icon="el-icon-search" 
-          style="margin-right: 15px;"
-          @click="indexHealthCheckVisible = true">索引健康检查</el-button>
-        <el-radio-group v-model="layoutMode" size="small">
-          <el-radio-button label="vertical"><i class="el-icon-s-grid"></i> 瀑布流布局</el-radio-button>
-          <el-radio-button label="tabs"><i class="el-icon-menu"></i> 标签页布局</el-radio-button>
-        </el-radio-group>
-      </div>
-
+      <!-- 根据 activeTab 显示内容 -->
       <div class="main-content">
-        <!-- 标签页布局 -->
-        <el-tabs v-if="layoutMode === 'tabs'" v-model="activeTab" type="border-card">
-          <el-tab-pane label="测试技术及工艺专区" name="tech">
-            <div class="zone-wrapper tech-zone">
-               <tech-zone-content 
-                 :search-query="techSearchQuery" 
-                 :tree-data="techTreeData" 
-                 :root-id="techRootId"
-                 :default-props="defaultProps"
-                 @search="performSearch($event, 'tech')"
-                 @node-click="handleNodeClick($event, 'tech')"
-                 @update:searchQuery="techSearchQuery = $event"
-                 @refresh="fetchData"
-                 ref="techTreeTab"
-               />
+        
+        <!-- Tab 1: 智能探索 (Search-First) -->
+        <div v-if="activeTab === 'search-first'" class="tab-content search-tab">
+          <div class="hero-section">
+            <div class="hero-content">
+              <h1 class="hero-title">银行业务测试资产库</h1>
+              <div class="search-box-large">
+                <el-input
+                  placeholder="在全库中搜索文档、产品、规范..."
+                  v-model="globalSearchQuery"
+                  class="large-search-input"
+                  @keyup.enter.native="performSearch(globalSearchQuery, 'global')"
+                  clearable>
+                  <el-button slot="append" icon="el-icon-search" type="primary" @click="performSearch(globalSearchQuery, 'global')">搜索</el-button>
+                </el-input>
+              </div>
+              <div class="hot-search-terms">
+                <h3><i class="el-icon-hot-water"></i> 热门搜索词</h3>
+                <hot-search-list @search="performSearch($event, 'global')"></hot-search-list>
+              </div>
             </div>
-          </el-tab-pane>
-          <el-tab-pane label="产品专区" name="product">
-             <product-zone-content
-                :products="products"
-                :filtered-products="filteredProducts"
-                :grouped-by-team="groupedByTeam"
-                :grouped-by-domain="groupedByDomain"
-                :favorite-count="favoriteCount"
-                :view-mode.sync="viewMode"
-                :product-filter.sync="productFilter"
-                @toggle-favorite="toggleFavorite"
-                @go-to-product="goToProduct"
-             />
-          </el-tab-pane>
-          <el-tab-pane label="测试管理专区" name="mgmt">
-             <mgmt-zone-content
-                 :search-query="mgmtSearchQuery"
-                 :tree-data="mgmtTreeData"
-                 :root-id="mgmtRootId"
-                 :default-props="defaultProps"
-                 @search="performSearch($event, 'mgmt')"
-                 @node-click="handleNodeClick($event, 'mgmt')"
-                 @update:searchQuery="mgmtSearchQuery = $event"
-                 @refresh="fetchData"
-                 ref="mgmtTreeTab"
-             />
-          </el-tab-pane>
-        </el-tabs>
+          </div>
 
-        <!-- 瀑布流布局 (原布局) -->
-        <div v-else class="vertical-layout">
-           <el-card class="zone-card tech-zone">
-              <tech-zone-content 
-                 :search-query="techSearchQuery" 
-                 :tree-data="techTreeData" 
-                 :default-props="defaultProps"
-                 @search="performSearch($event, 'tech')"
-                 @node-click="handleNodeClick($event, 'tech')"
-                 @update:searchQuery="techSearchQuery = $event"
-                 ref="techTreeVertical"
-               />
-           </el-card>
+          <div class="ranking-section">
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-card class="ranking-card">
+                  <div slot="header" class="card-header">
+                    <span><i class="el-icon-data-line"></i> 全行使用榜</span>
+                  </div>
+                  <global-use-top-list @node-click="handleSearchResultClick"></global-use-top-list>
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card class="ranking-card">
+                  <div slot="header" class="card-header">
+                    <span><i class="el-icon-star-on"></i> 资产人气榜</span>
+                  </div>
+                  <global-star-top-list @node-click="handleSearchResultClick"></global-star-top-list>
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card class="ranking-card">
+                  <div slot="header" class="card-header">
+                    <span><i class="el-icon-refresh"></i> 最新更新</span>
+                  </div>
+                  <latest-updates-list @node-click="handleSearchResultClick"></latest-updates-list>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+        </div>
 
-           <el-card class="zone-card product-zone">
+        <!-- Tab 2: 业务版图 (Business Landscape) -->
+        <div v-else-if="activeTab === 'business-landscape'" class="tab-content">
+          <div class="zone-header-actions">
+            <el-radio-group v-model="zoneViewMode" size="medium">
+              <el-radio-button label="tech">测试技术与工艺专区</el-radio-button>
+              <el-radio-button label="product">产品专区</el-radio-button>
+              <el-radio-button label="mgmt">测试管理专区</el-radio-button>
+            </el-radio-group>
+            
+            <div class="admin-actions">
+              <el-button
+                type="warning"
+                size="small"
+                icon="el-icon-monitor"
+                plain
+                @click="healthCheckVisible = true">存储健康检查</el-button>
+              <el-button
+                type="warning"
+                size="small"
+                icon="el-icon-search"
+                plain
+                @click="indexHealthCheckVisible = true">索引健康检查</el-button>
+            </div>
+          </div>
+
+          <div class="zone-content-area">
+            <div v-if="zoneViewMode === 'tech'" class="zone-wrapper tech-zone">
+              <tech-zone-content
+                :search-query="techSearchQuery"
+                :tree-data="techTreeData"
+                :root-id="techRootId"
+                :default-props="defaultProps"
+                @search="performSearch($event, 'tech')"
+                @node-click="handleNodeClick($event, 'tech')"
+                @update:searchQuery="techSearchQuery = $event"
+                @refresh="fetchData"
+                ref="techTreeTab"
+              />
+            </div>
+            <div v-else-if="zoneViewMode === 'product'" class="zone-wrapper product-zone">
               <product-zone-content
                 :products="products"
                 :filtered-products="filteredProducts"
@@ -108,31 +109,61 @@
                 :product-filter.sync="productFilter"
                 @toggle-favorite="toggleFavorite"
                 @go-to-product="goToProduct"
-             />
-           </el-card>
-
-           <el-card class="zone-card mgmt-zone">
+              />
+            </div>
+            <div v-else-if="zoneViewMode === 'mgmt'" class="zone-wrapper mgmt-zone">
               <mgmt-zone-content
-                 :search-query="mgmtSearchQuery"
-                 :tree-data="mgmtTreeData"
-                 :default-props="defaultProps"
-                 @search="performSearch($event, 'mgmt')"
-                 @node-click="handleNodeClick($event, 'mgmt')"
-                 @update:searchQuery="mgmtSearchQuery = $event"
-                 ref="mgmtTreeVertical"
-             />
-           </el-card>
+                :search-query="mgmtSearchQuery"
+                :tree-data="mgmtTreeData"
+                :root-id="mgmtRootId"
+                :default-props="defaultProps"
+                @search="performSearch($event, 'mgmt')"
+                @node-click="handleNodeClick($event, 'mgmt')"
+                @update:searchQuery="mgmtSearchQuery = $event"
+                @refresh="fetchData"
+                ref="mgmtTreeTab"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: 资产拓扑 (Relationship Graph) -->
+        <div v-else-if="activeTab === 'relationship-graph'" class="tab-content">
+          <relationship-graph @node-click="handleProductGraphClick"></relationship-graph>
+        </div>
+
+        <!-- Tab 4: 测试工作区 (Task-Driven) -->
+        <div v-else-if="activeTab === 'task-driven'" class="tab-content">
+          <el-row :gutter="20">
+            <el-col :span="12">
+              <el-card class="workspace-card">
+                <div slot="header" class="card-header">
+                  <span><i class="el-icon-star-on"></i> 我的收藏</span>
+                </div>
+                <my-star-list @node-click="handleSearchResultClick"></my-star-list>
+              </el-card>
+            </el-col>
+            <el-col :span="12">
+              <el-card class="workspace-card">
+                <div slot="header" class="card-header">
+                  <span><i class="el-icon-time"></i> 最近访问</span>
+                </div>
+                <recent-access-list @node-click="handleSearchResultClick"></recent-access-list>
+              </el-card>
+            </el-col>
+          </el-row>
         </div>
       </div>
     </div>
 
     <!-- 超级预览弹窗 -->
-    <super-preview 
-      :visible.sync="previewVisible" 
+    <super-preview
+      :visible.sync="previewVisible"
       :title="currentPreviewTitle"
       :file-data="currentPreviewFile"
       :tree-data="currentPreviewTree"
-      @node-click="handlePreviewNodeClick">
+      @node-click="handlePreviewNodeClick"
+      @star-change="handleStarChange">
     </super-preview>
 
     <!-- 搜索结果弹窗 -->
@@ -156,6 +187,7 @@
 </template>
 
 <script>
+import MainHeader from '../components/MainHeader.vue'
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
 import StorageHealthCheckDialog from '../components/StorageHealthCheckDialog.vue'
@@ -163,6 +195,14 @@ import IndexHealthCheckDialog from '../components/IndexHealthCheckDialog.vue'
 import TechZoneContent from '../components/TechZoneContent.vue'
 import ProductZoneContent from '../components/ProductZoneContent.vue'
 import MgmtZoneContent from '../components/MgmtZoneContent.vue'
+import HotSearchList from '../components/HotSearchList.vue'
+import GlobalUseTopList from '../components/GlobalUseTopList.vue'
+import GlobalStarTopList from '../components/GlobalStarTopList.vue'
+import LatestUpdatesList from '../components/LatestUpdatesList.vue'
+import MyStarList from '../components/MyStarList.vue'
+import RecentAccessList from '../components/RecentAccessList.vue'
+import RelationshipGraph from '../components/RelationshipGraph.vue'
+
 import { getProductList, toggleFavorite as toggleFavoriteApi } from '@/api/product'
 import { getAssetTree, getAssetDetails } from '@/api/asset-node'
 import { search } from '@/api/search'
@@ -170,13 +210,21 @@ import { search } from '@/api/search'
 export default {
   name: 'Home',
   components: {
+    MainHeader,
     SuperPreview,
     SearchResultDialog,
     StorageHealthCheckDialog,
     IndexHealthCheckDialog,
     TechZoneContent,
     ProductZoneContent,
-    MgmtZoneContent
+    MgmtZoneContent,
+    HotSearchList,
+    GlobalUseTopList,
+    GlobalStarTopList,
+    LatestUpdatesList,
+    MyStarList,
+    RecentAccessList,
+    RelationshipGraph
   },
   data() {
     return {
@@ -185,30 +233,30 @@ export default {
       mgmtSearchQuery: '',
       productFilter: 'all',
       viewMode: 'tile',
-      layoutMode: 'tabs', // Default to tabs layout as per PRD
-      activeTab: 'tech',      // Default active tab
+      activeTab: 'search-first',      // 默认进入“智能探索”
+      zoneViewMode: 'tech', 
       previewVisible: false,
       healthCheckVisible: false,
       indexHealthCheckVisible: false,
       currentPreviewFile: null,
       currentPreviewTree: [],
       currentPreviewTitle: '',
-      
+
       searchResultVisible: false,
       currentSearchQuery: '',
       searchResults: [],
-      
+
       defaultProps: {
         children: 'children',
-        label: 'fileName', // Changed from label to fileName
+        label: 'fileName',
         isLeaf: 'leaf'
       },
-      
+
       techTreeData: [],
       mgmtTreeData: [],
       techRootId: null,
       mgmtRootId: null,
-      
+
       products: [],
       loading: false
     }
@@ -239,6 +287,16 @@ export default {
       }, {});
     }
   },
+  watch: {
+    '$route.query.tab': {
+      immediate: true,
+      handler(val) {
+        if (val) {
+          this.activeTab = val;
+        }
+      }
+    }
+  },
   created() {
     this.fetchData();
   },
@@ -246,27 +304,21 @@ export default {
     async fetchData() {
       this.loading = true
       try {
-        // Fetch Products
         const products = await getProductList();
-        
         this.products = (products || []).map(p => ({
           ...p,
           owner: p.ownerName || 'Unknown Owner'
         }));
 
-        // 根据收藏情况设置默认过滤器：有收藏则默认看收藏，无收藏则看全部
         const hasFavorites = this.products.some(p => p.isFavorited);
         this.productFilter = hasFavorites ? 'favorites' : 'all';
 
-        // Fetch Tech Zone Root (Product ID 0, Parent ID 0)
         const publicRoots = await getAssetTree({ product_id: 0, parent_id: 0 });
-        
         const techRoot = (publicRoots || []).find(n => n.fileName === '测试技术及工艺专区');
         const mgmtRoot = (publicRoots || []).find(n => n.fileName === '测试管理专区');
-        
+
         if (techRoot) {
            this.techRootId = techRoot.id;
-           // Fetch children of Tech Root
            const techChildren = await getAssetTree({ product_id: 0, parent_id: techRoot.id });
            this.techTreeData = (techChildren || []).map(node => ({
              ...node,
@@ -274,10 +326,9 @@ export default {
              leaf: node.nodeType === 2 || !node.hasChildren
            }));
         }
-        
+
         if (mgmtRoot) {
            this.mgmtRootId = mgmtRoot.id;
-           // Fetch children of Mgmt Root
            const mgmtChildren = await getAssetTree({ product_id: 0, parent_id: mgmtRoot.id });
            this.mgmtTreeData = (mgmtChildren || []).map(node => ({
              ...node,
@@ -285,7 +336,6 @@ export default {
              leaf: node.nodeType === 2 || !node.hasChildren
            }));
         }
-
       } catch (error) {
         console.error(error)
         this.$message.error('Failed to load data')
@@ -293,33 +343,8 @@ export default {
         this.loading = false
       }
     },
-    buildTree(nodes) {
-      const map = {};
-      const roots = [];
-      
-      // First pass: create map and initialize children
-      nodes.forEach(node => {
-        map[node.id] = { ...node, label: node.name, children: [] }; // Map name to label
-      });
-      
-      // Second pass: link children to parents
-      nodes.forEach(node => {
-        if (node.parentId && map[node.parentId]) {
-          map[node.parentId].children.push(map[node.id]);
-        } else {
-          roots.push(map[node.id]);
-        }
-      });
-      
-      return roots;
-    },
-    filterNode(value, data) {
-      if (!value) return true;
-      return data.label.indexOf(value) !== -1;
-    },
     handleNodeClick(data, zoneType) {
       if (data.nodeType === 2) {
-        // Determine which tree it belongs to
         let treeData = [];
         let title = '';
         if (zoneType === 'tech') {
@@ -329,39 +354,46 @@ export default {
           treeData = this.mgmtTreeData;
           title = '测试管理专区';
         }
-        
         this.currentPreviewTree = treeData;
         this.currentPreviewTitle = title;
         this.currentPreviewFile = data;
         this.previewVisible = true;
       }
     },
-    handlePreviewNodeClick(data) {
-      this.currentPreviewFile = data;
+    async handlePreviewNodeClick(data) {
+      if (data.nodeType === 2) {
+        try {
+          const fileDetails = await getAssetDetails(data.id);
+          this.currentPreviewFile = { ...data, ...fileDetails };
+        } catch (e) {
+          this.currentPreviewFile = data;
+        }
+      }
+    },
+    handleStarChange() {
+      // 收藏状态改变后，刷新相关列表（如我的收藏）
+      // 这里可以根据需要刷新特定的子组件
+      // 简单起见，可以重新获取所有数据，或者通过 ref 调用子组件的刷新方法
+      if (this.activeTab === 'task-driven') {
+        // 刷新我的收藏列表
+      }
     },
     async performSearch(query, scope) {
       if (!query) {
         this.$message.warning('请输入搜索关键字');
         return;
       }
-      
-      console.log(`Starting search for: "${query}" in scope: "${scope}"`);
       this.loading = true;
       try {
         const params = { keyword: query };
         if (scope === 'tech' || scope === 'mgmt') {
           params.zoneType = scope;
         }
-        // For 'global' scope, we don't pass any filter, so it searches everything.
-
         const res = await search(params);
-        console.log('Search API response:', res);
-        
         let results = [];
         if (res && Array.isArray(res)) {
           results = res.map(item => {
             let zoneName = '未知区域';
-
             if (item.zone_type === 'tech') {
               zoneName = '测试技术及工艺专区';
             } else if (item.zone_type === 'mgmt') {
@@ -369,7 +401,6 @@ export default {
             } else if (item.zone_type === 'product') {
               zoneName = item.zone_name || '产品专区';
             }
-
             return {
               id: parseInt(item.id),
               label: item.name,
@@ -377,9 +408,9 @@ export default {
               ext: item.ext,
               treePath: item.tree_path,
               productId: item.product_id,
-              nodeType: 2, // Search results are always files
+              nodeType: 2,
               isProduct: false,
-              path: [zoneName], // Simplified path for display
+              path: [zoneName],
               zoneName: zoneName,
               context: item.highlight || item.text || '暂无内容预览',
               sourceTree: item.zone_type === 'tech' ? this.techTreeData : (item.zone_type === 'mgmt' ? this.mgmtTreeData : []),
@@ -387,92 +418,32 @@ export default {
             };
           });
         }
-        
-        console.log('Processed search results:', results);
         this.searchResults = results;
         this.currentSearchQuery = query;
-        
-        console.log('Setting searchResultVisible to true');
         this.searchResultVisible = true;
-
       } catch (error) {
-        console.error('Search failed with error:', error);
+        console.error('Search failed:', error);
         this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
         this.loading = false;
-        console.log('Search finished.');
       }
     },
-    async handleSearchResultClick(item) {
-      if (item.isProduct) {
-        this.goToProduct(item.id);
-      } else {
-        this.loading = true;
-        try {
-          // First, get the full, real-time details of the file from the database
-          const fileDetails = await getAssetDetails(item.id);
-
-          // Now, prepare the data for the preview component
-          let title = '文件预览'; // Default title
-          let treeData = [];
-
-          if (item.zone_type === 'tech') {
-            title = '测试技术及工艺专区';
-            treeData = this.techTreeData;
-          } else if (item.zone_type === 'mgmt') {
-            title = '测试管理专区';
-            treeData = this.mgmtTreeData;
-          } else if (item.zone_type === 'product') {
-            title = item.zone_name || '产品专区';
-            // For product files, we need to fetch the tree dynamically
-            // The SuperPreview component's loadNode method will handle fetching children
-            // We just need to pass the initial root for the product.
-            // Since product_id is available, we can pass a dummy root node for the product.
-            treeData = [{ 
-              id: 0, // Root node for product tree
-              fileName: title,
-              label: title,
-              nodeType: 1, // Folder type
-              hasChildren: true, // Assume it has children to enable lazy loading
-              productId: item.product_id
-            }];
-          }
-
-          this.currentPreviewTree = treeData;
-          this.currentPreviewTitle = title;
-          
-          // Combine the search result info (like highlight context) with the full db record
-          this.currentPreviewFile = { ...item, ...fileDetails };
-          
-          this.previewVisible = true;
-        } catch (error) {
-          console.error('Failed to get file details for preview:', error);
-          this.$message.error('无法加载文件预览，请重试');
-        } finally {
-          this.loading = false;
-        }
-      }
+    handleProductGraphClick(product) {
+      console.log('Product graph node clicked:', product);
+      this.$message.info(`点击了产品：${product.name}，待实现产品使用榜`);
     },
     async toggleFavorite(product) {
       const newStatus = !product.isFavorited;
       const action = newStatus ? 1 : 0;
-      
       try {
         await toggleFavoriteApi(product.id, action);
         product.isFavorited = newStatus;
-        
-        // 同步更新本地缓存（可选，主要用于未登录状态或快速响应，但现在有后端了，以后端为准）
-        const savedFavorites = this.products.filter(p => p.isFavorited).map(p => p.id);
-        localStorage.setItem('favoriteProducts', JSON.stringify(savedFavorites));
-        
         if (this.favoriteCount === 0 && this.productFilter === 'favorites') {
           this.productFilter = 'all';
         }
-        
         this.$message.success(newStatus ? '收藏成功' : '已取消收藏');
       } catch (error) {
         console.error('收藏操作失败', error);
-        // request.js 已经处理了错误弹窗
       }
     },
     goToProduct(id) {
@@ -484,176 +455,107 @@ export default {
 
 <style scoped>
 .home-wrapper {
-  min-height: 100%;
+  min-height: 100vh;
   background-color: #f5f7fa;
 }
 
-.hero-section {
-  background-color: #fff;
-  padding: 40px 20px;
-  text-align: center;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
-  margin-bottom: 24px;
-}
-
-.hero-content {
-  max-width: 800px;
+.home-container {
+  padding: 20px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
+.main-content {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  min-height: calc(100vh - 120px);
+}
+
+.tab-content {
+  padding: 10px 0;
+}
+
+/* 智能探索样式 */
+.hero-section {
+  padding: 40px 0;
+  text-align: center;
+  background-color: #fff;
+  border-radius: 8px;
+  margin-bottom: 30px;
+}
+
 .hero-title {
-  font-size: 32px;
+  font-size: 28px;
   color: #409EFF;
-  margin: 0 0 24px 0;
+  margin-bottom: 30px;
   font-weight: bold;
   letter-spacing: 2px;
 }
 
-.hero-search-input {
-  width: 100%;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border-radius: 4px;
+.search-box-large {
+  max-width: 700px;
+  margin: 0 auto 30px;
 }
 
-.hero-search-input /deep/ .el-input__inner {
+.large-search-input /deep/ .el-input__inner {
   height: 50px;
   line-height: 50px;
   font-size: 16px;
 }
 
-.hero-search-input /deep/ .el-input-group__append {
+.large-search-input /deep/ .el-input-group__append {
   background-color: #409EFF;
   color: white;
   border-color: #409EFF;
-  font-size: 16px;
   padding: 0 30px;
-}
-
-.hero-search-input /deep/ .el-input-group__append:hover {
-  background-color: #66b1ff;
-  border-color: #66b1ff;
-}
-
-.home-container {
-  padding: 0 20px 20px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.zone-card {
-  margin-bottom: 24px;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
-}
-
-.zone-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: bold;
-  font-size: 18px;
-  color: #303133;
-}
-
-.product-controls {
-  display: flex;
-  align-items: center;
-}
-
-.custom-tree {
-  background: transparent;
-}
-
-.custom-tree-node {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  padding-right: 8px;
-}
-
-.custom-tree-node i {
-  margin-right: 6px;
-  color: #909399;
-}
-
-/* 产品卡片网格 */
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.product-card {
-  background: #fff;
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.product-card:hover {
-  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.1);
-  transform: translateY(-2px);
-  border-color: #409EFF;
-}
-
-.product-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
-  padding-bottom: 12px;
-}
-
-.product-name {
   font-size: 16px;
+}
+
+.hot-search-terms h3 {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 12px;
+}
+
+.ranking-section {
+  margin-top: 20px;
+}
+
+.ranking-card {
+  height: 100%;
+}
+
+.card-header {
+  font-size: 15px;
   font-weight: bold;
   color: #303133;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
 }
 
-.favorite-icon {
-  font-size: 20px;
-  color: #c0c4cc;
-  cursor: pointer;
-}
-
-.favorite-icon.active {
-  color: #e6a23c;
-}
-
-.product-card-body p {
-  margin: 6px 0;
-  font-size: 13px;
-  color: #606266;
-}
-
-.product-card-body strong {
-  color: #909399;
-  display: inline-block;
-  width: 70px;
-}
-
-.product-card-footer {
-  margin-top: 12px;
-  text-align: right;
-}
-
-.group-section {
-  margin-bottom: 30px;
-}
-
-.group-title {
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #ebeef5;
+.card-header i {
+  margin-right: 8px;
   color: #409EFF;
-  font-size: 18px;
+}
+
+/* 业务版图样式 */
+.zone-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.admin-actions .el-button {
+  margin-left: 10px;
+}
+
+.workspace-card /deep/ .el-card__header {
+  font-weight: bold;
+  color: #303133;
 }
 </style>

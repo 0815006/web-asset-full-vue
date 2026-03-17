@@ -42,3 +42,26 @@ export function getRebuildProgress() {
     method: 'get'
   })
 }
+
+// 新增 API
+export function getHotKeywords(params) {
+  return request({
+    url: '/api/search/hot-keywords',
+    method: 'get',
+    params
+  })
+}
+
+export function getGlobalUseTop() {
+  return request({
+    url: '/api/search/global-use-top',
+    method: 'get'
+  })
+}
+
+export function getGlobalStarTop() {
+  return request({
+    url: '/api/search/global-star-top',
+    method: 'get'
+  })
+}

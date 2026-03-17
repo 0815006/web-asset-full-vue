@@ -1,11 +1,5 @@
 <template>
   <div id="app">
-    <div class="app-header">
-      <div class="user-info">
-        <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
-        <span class="username">{{ currentUser.realName || '未登录' }}</span>
-      </div>
-    </div>
     <div class="app-main" v-if="initDone">
       <router-view/>
     </div>

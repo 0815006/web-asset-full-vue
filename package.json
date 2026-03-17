@@ -14,6 +14,7 @@
     "element-ui": "^2.15.14",
     "highlight.js": "^11.11.1",
     "marked": "^4.3.0",
+    "moment": "^2.30.1",
     "stream-browserify": "^3.0.0",
     "vue": "^2.7.16",
     "vue-router": "^3.6.5"
