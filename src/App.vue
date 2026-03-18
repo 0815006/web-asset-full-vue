@@ -16,22 +16,9 @@ export default {
     }
   },
   async created() {
-    await this.autoLogin()
     this.initDone = true
   },
   methods: {
-    async autoLogin() {
-      // 直接默认登录陈东用户，跳过后端接口调用，确保前端能直接渲染一切
-      this.currentUser = {
-        id: 2,
-        username: 'chendong',
-        realName: '陈东',
-        empNo: 'NO.9527',
-        roleType: 2
-      };
-      localStorage.setItem('token', 'mock-token-for-chendong');
-      localStorage.setItem('userId', '2');
-    }
   }
 }
 </script>

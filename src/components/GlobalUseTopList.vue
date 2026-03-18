@@ -43,13 +43,13 @@ export default {
           this.topList = (res || []).map(item => ({
             ...item,
             ...(detailMap[item.file_id] || { fileName: `未知文件(${item.file_id})` })
-          })).filter(item => detailMap[item.file_id]); // 只显示存在的
+          })).filter(item => detailMap[item.file_id]).slice(0, 10); // 只显示存在的，且最多10条
         } else {
           this.topList = [];
         }
       } catch (error) {
         console.error("Failed to fetch global use top list:", error);
-        this.$message.error("获取全行使用榜失败");
+        this.$message.error("获取访问排行榜失败");
       }
     },
     handleItemClick(item) {

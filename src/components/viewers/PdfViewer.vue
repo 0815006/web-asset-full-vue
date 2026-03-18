@@ -1,7 +1,7 @@
 <template>
   <div class="pdf-viewer-wrapper">
     <iframe
-      :src="url"
+      :src="pdfUrl"
       width="100%"
       height="100%"
       frameborder="0"
@@ -17,6 +17,13 @@ export default {
     url: {
       type: String,
       required: true
+    }
+  },
+  computed: {
+    pdfUrl() {
+      const token = localStorage.getItem('token');
+      const tokenParam = token ? `?token=${token}` : '';
+      return `${this.url}${tokenParam}`;
     }
   }
 }

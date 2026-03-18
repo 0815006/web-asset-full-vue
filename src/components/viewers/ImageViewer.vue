@@ -1,9 +1,9 @@
 <template>
   <div class="image-viewer">
     <el-image 
-      :src="url" 
+      :src="imageUrl" 
       fit="contain"
-      :preview-src-list="[url]">
+      :preview-src-list="[imageUrl]">
     </el-image>
   </div>
 </template>
@@ -15,6 +15,13 @@ export default {
     url: {
       type: String,
       required: true
+    }
+  },
+  computed: {
+    imageUrl() {
+      const token = localStorage.getItem('token');
+      const tokenParam = token ? `?token=${token}` : '';
+      return `${this.url}${tokenParam}`;
     }
   }
 }

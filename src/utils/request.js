@@ -62,6 +62,12 @@ service.interceptors.response.use(
   },
   error => {
     console.log('err' + error) // for debug
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('token')
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userInfo')
+      window.location.href = '/login'
+    }
     Message({
       message: error.message,
       type: 'error',

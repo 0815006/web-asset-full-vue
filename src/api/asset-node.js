@@ -167,3 +167,11 @@ export function getProductUseTop(productId, params) {
     params
   })
 }
+
+export function getRecentAccessedFiles(params) {
+  return request({
+    url: '/api/assets/recent-access',
+    method: 'get',
+    params
+  })
+}

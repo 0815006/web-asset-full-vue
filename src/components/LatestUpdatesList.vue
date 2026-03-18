@@ -2,12 +2,13 @@
   <div class="latest-updates-list">
     <div v-if="latestUpdates.length === 0" class="empty-text">暂无更新</div>
     <ul class="file-list">
-      <li v-for="item in latestUpdates" :key="item.id" class="file-item" @click="handleItemClick(item)">
+      <li v-for="(item, index) in latestUpdates" :key="item.id" class="file-item" @click="handleItemClick(item)">
         <div class="file-info">
+          <span class="rank-num" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
           <i :class="getIconClass(item)"></i>
           <span class="file-name" :title="item.fileName">{{ item.fileName }}</span>
         </div>
-        <el-tag v-if="item.isNew" type="danger" size="mini" class="new-tag">New</el-tag>
+        <span class="update-time">{{ formatDate(item.updatedAt) }}</span>
       </li>
     </ul>
   </div>
@@ -15,6 +16,7 @@
 
 <script>
 import { getLatestUpdates } from "@/api/asset-node";
+import moment from 'moment';
 
 export default {
   name: "LatestUpdatesList",
@@ -30,7 +32,7 @@ export default {
     async fetchLatestUpdates() {
       try {
         const res = await getLatestUpdates({ page: 1, size: 10 });
-        this.latestUpdates = res || [];
+        this.latestUpdates = (res || []).slice(0, 10); // 确保只展示前10条
       } catch (error) {
         console.error("Failed to fetch latest updates:", error);
         this.$message.error("获取最新更新列表失败");
@@ -56,6 +58,10 @@ export default {
         case 'xmind': return 'el-icon-s-data color-xmind';
         default: return 'el-icon-document color-default';
       }
+    },
+    formatDate(dateString) {
+      if (!dateString) return '';
+      return moment(dateString).format('MM-DD HH:mm');
     }
   },
 };
@@ -97,6 +103,19 @@ export default {
   flex: 1;
 }
 
+.rank-num {
+  font-size: 14px;
+  font-weight: bold;
+  color: #909399;
+  width: 24px;
+  margin-right: 10px;
+  text-align: center;
+}
+
+.rank-1 { color: #f56c6c; }
+.rank-2 { color: #e6a23c; }
+.rank-3 { color: #409eff; }
+
 .file-info i {
   font-size: 18px;
   margin-right: 12px;
@@ -111,7 +130,9 @@ export default {
   text-overflow: ellipsis;
 }
 
-.new-tag {
+.update-time {
+  font-size: 12px;
+  color: #909399;
   margin-left: 10px;
   flex-shrink: 0;
 }

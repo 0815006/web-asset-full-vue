@@ -3,7 +3,7 @@
     <div class="nav-container">
       <div class="logo-section" @click="goToHome('search-first')">
         <i class="el-icon-s-finance"></i>
-        <span class="logo-text">资产库</span>
+        <span class="logo-text">测试资产库</span>
       </div>
       
       <div class="tabs-wrapper">
@@ -16,8 +16,16 @@
       </div>
       
       <div class="user-info-wrapper">
-        <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
-        <span class="username">陈东</span>
+        <el-dropdown @command="handleCommand" trigger="click">
+          <div class="user-info-content">
+            <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
+            <span class="username">{{ realName }}</span>
+            <i class="el-icon-arrow-down el-icon--right"></i>
+          </div>
+          <el-dropdown-menu slot="dropdown">
+            <el-dropdown-item command="logout" icon="el-icon-switch-button">退出登录</el-dropdown-item>
+          </el-dropdown-menu>
+        </el-dropdown>
       </div>
     </div>
   </div>
@@ -33,6 +41,10 @@ export default {
     }
   },
   computed: {
+    realName() {
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      return userInfo.realName || '未登录';
+    },
     localActiveTab: {
       get() {
         return this.activeTab;
@@ -43,6 +55,24 @@ export default {
     }
   },
   methods: {
+    handleCommand(command) {
+      if (command === 'logout') {
+        this.handleLogout();
+      }
+    },
+    handleLogout() {
+      this.$confirm('确定要退出登录吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userInfo');
+        this.$message.success('已退出登录');
+        this.$router.push('/login');
+      }).catch(() => {});
+    },
     handleTabClick(tab) {
       if (this.$route.path !== '/') {
         this.$router.push({ path: '/', query: { tab: tab.name } });
@@ -143,5 +173,16 @@ export default {
 
 .username {
   font-weight: 500;
+}
+
+.user-info-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.user-info-content:hover .username {
+  color: #409EFF;
 }
 </style>

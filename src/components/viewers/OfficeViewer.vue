@@ -66,7 +66,8 @@ export default {
               "edit": false,    // 禁止编辑
               "fillForms": false,
               "print": true,    // 允许打印
-              "review": false
+              "review": false,
+              "chat": false     // 将 chat 移到 permissions 中
             }
           },
           "documentType": documentType,
@@ -80,7 +81,6 @@ export default {
             "callbackUrl": this.absoluteFileUrl.replace('/view', '/callback'),
             "customization": {
               "autosave": false,
-              "chat": false,
               "comments": false,
               "help": false,
               "hideRightMenu": false,

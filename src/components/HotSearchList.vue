@@ -1,13 +1,18 @@
 <template>
   <div class="hot-search-list">
-    <el-tag
+    <el-tooltip
       v-for="item in hotKeywords"
       :key="item.keyword"
-      effect="plain"
-      class="hot-keyword-tag"
-      @click="handleSearch(item.keyword)">
-      {{ item.keyword }} ({{ item.searchCount }})
-    </el-tag>
+      :content="item.keyword + ' (' + item.searchCount + ')'"
+      placement="top"
+      :disabled="item.keyword.length <= 10">
+      <el-tag
+        effect="plain"
+        class="hot-keyword-tag"
+        @click="handleSearch(item.keyword)">
+        {{ item.keyword }} ({{ item.searchCount }})
+      </el-tag>
+    </el-tooltip>
   </div>
 </template>
 
@@ -52,6 +57,10 @@ export default {
 .hot-keyword-tag {
   cursor: pointer;
   transition: all 0.3s;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hot-keyword-tag:hover {

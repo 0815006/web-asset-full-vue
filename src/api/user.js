@@ -20,3 +20,10 @@ export function getInfo(token) {
 export function logout() {
   return Promise.resolve()
 }
+
+export function getUserList() {
+  return request({
+    url: '/api/users/list',
+    method: 'get'
+  })
+}

@@ -9,7 +9,7 @@ export default new Vuex.Store({
     globalSearchQuery: '',
     // 热门搜索词列表
     hotKeywords: [],
-    // 全行使用榜列表
+    // 访问排行榜列表
     globalUseTopList: [],
     // 资产人气榜列表
     globalStarTopList: [],

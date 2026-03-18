@@ -165,7 +165,8 @@ export default {
       fileMissing: false,
       activeType: '', // 当前正在显示的类型：pdf, image, office, xmind, text
       updateDialogVisible: false,
-      isStarred: false
+      isStarred: false,
+      lastRecordedId: null // 记录上次成功记录阅读状态的文件ID
     }
   },
   computed: {
@@ -224,7 +225,9 @@ export default {
       // 假设后端运行在宿主机的 8081 端口。
       // 在 Docker 容器内访问宿主机可以使用 host.docker.internal (Windows/Mac)
       const baseUrl = process.env.VUE_APP_BACKEND_API_BASE || 'http://host.docker.internal:8081';
-      return `${baseUrl}/api/assets/${this.fileData.id}/view`;
+      const token = localStorage.getItem('token');
+      const tokenParam = token ? `?token=${token}` : '';
+      return `${baseUrl}/api/assets/${this.fileData.id}/view${tokenParam}`;
     }
   },
   watch: {
@@ -294,9 +297,10 @@ export default {
       }
     },
     async recordRead() {
-      if (!this.fileData) return;
+      if (!this.fileData || this.lastRecordedId === this.fileData.id) return;
       try {
         await recordReadState({ file_id: this.fileData.id, user_id: 2 }); // 假设用户ID为2
+        this.lastRecordedId = this.fileData.id;
         // 更新 Vuex 中的状态，实现秒级消除
         if (this.$store) {
           this.$store.commit('UPDATE_FILE_IS_NEW', { fileId: this.fileData.id, isNew: false });
@@ -330,7 +334,12 @@ export default {
     },
     async checkFileExistence() {
       try {
-        const response = await fetch(this.previewUrl, { method: 'HEAD' });
+        const token = localStorage.getItem('token');
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = 'Bearer ' + token;
+        }
+        const response = await fetch(this.previewUrl, { method: 'HEAD', headers });
         if (response.status === 404) {
           this.fileMissing = true;
         }
@@ -405,7 +414,9 @@ export default {
       if (!this.fileData) return;
       
       // 直接通过浏览器下载单个文件，不打成压缩包
-      const downloadUrl = `${this.previewUrl}?download=true`;
+      const token = localStorage.getItem('token');
+      const tokenParam = token ? `&token=${token}` : '';
+      const downloadUrl = `${this.previewUrl}?download=true${tokenParam}`;
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.setAttribute('download', this.fileData.label);

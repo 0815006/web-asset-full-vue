@@ -3,7 +3,7 @@
     <div class="zone-header" v-if="showHeader">
       <span>产品专区</span>
       <div class="product-controls">
-        <el-radio-group :value="productFilter" @input="$emit('update:productFilter', $event)" size="small">
+        <el-radio-group :value="productFilter" @input="handleFilterChange" size="small">
           <el-radio-button label="all">全部产品</el-radio-button>
           <el-radio-button label="favorites" :disabled="favoriteCount === 0">我的收藏 ({{ favoriteCount }})</el-radio-button>
         </el-radio-group>
@@ -115,6 +115,15 @@ export default {
     showHeader: {
       type: Boolean,
       default: true
+    },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false
+    }
+  },
+  methods: {
+    handleFilterChange(val) {
+      this.$emit('update:productFilter', val);
     }
   },
   filters: {
