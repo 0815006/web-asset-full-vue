@@ -2,7 +2,7 @@
   <el-dialog
     title="产品维护"
     :visible.sync="visible"
-    width="900px"
+    width="600px"
     :before-close="handleClose"
     append-to-body
     class="product-mgmt-dialog">
@@ -12,20 +12,33 @@
         <el-button type="primary" size="small" icon="el-icon-plus" @click="showCreateDialog">创建新产品</el-button>
       </div>
 
-      <el-table :data="products" style="width: 100%" border stripe v-loading="loading" height="400">
-        <el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
-        <el-table-column prop="productName" label="产品名称" min-width="150" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="teamName" label="所属团队" min-width="120" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="domainName" label="业务领域" min-width="120" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="ownerName" label="负责人" width="100" align="center"></el-table-column>
-        <el-table-column prop="assetCount" label="资产数" width="80" align="center"></el-table-column>
-        <el-table-column label="操作" width="220" align="center" fixed="right">
-          <template slot-scope="scope">
-            <el-button size="mini" @click="showEditDialog(scope.row)">编辑</el-button>
-            <el-button size="mini" type="success" plain @click="initFolders(scope.row)" :loading="scope.row.initLoading">一键铺底目录</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="product-selector">
+        <span class="selector-label">选择需要维护的产品：</span>
+        <el-select v-model="selectedProductId" placeholder="请选择要维护的产品" style="flex: 1;" filterable @change="handleProductSelect">
+          <el-option
+            v-for="item in products"
+            :key="item.id"
+            :label="item.productName"
+            :value="item.id">
+          </el-option>
+        </el-select>
+      </div>
+
+      <div v-if="selectedProduct" class="product-info-list">
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item label="产品名称">{{ selectedProduct.productName }}</el-descriptions-item>
+          <el-descriptions-item label="英文简称">{{ selectedProduct.productCode || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="所属团队">{{ selectedProduct.teamName }}</el-descriptions-item>
+          <el-descriptions-item label="业务领域">{{ selectedProduct.domainName }}</el-descriptions-item>
+          <el-descriptions-item label="负责人">{{ selectedProduct.ownerName }}</el-descriptions-item>
+          <el-descriptions-item label="资产数">{{ selectedProduct.assetCount }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+
+      <div v-if="selectedProduct" class="product-actions">
+        <el-button size="medium" type="primary" plain icon="el-icon-edit" @click="showEditDialog(selectedProduct)">编辑产品信息</el-button>
+        <el-button size="medium" type="success" plain icon="el-icon-folder-add" @click="initFolders(selectedProduct)" :loading="selectedProduct.initLoading">一键铺底目录</el-button>
+      </div>
     </div>
 
     <!-- 创建/编辑产品弹窗 -->
@@ -33,6 +46,9 @@
       <el-form :model="productForm" :rules="productRules" ref="productForm" label-width="100px">
         <el-form-item label="产品名称" prop="productName">
           <el-input v-model="productForm.productName" placeholder="请输入产品名称"></el-input>
+        </el-form-item>
+        <el-form-item label="英文简称" prop="productCode">
+          <el-input v-model="productForm.productCode" placeholder="请输入产品英文简称"></el-input>
         </el-form-item>
         <el-form-item label="所属团队" prop="teamName">
           <el-input v-model="productForm.teamName" placeholder="请输入所属团队"></el-input>
@@ -76,18 +92,21 @@ export default {
       loading: false,
       products: [],
       userList: [],
+      selectedProductId: null,
       dialogVisible: false,
       dialogTitle: "",
       isEdit: false,
       productForm: {
         id: null,
         productName: "",
+        productCode: "",
         teamName: "",
         domainName: "",
         ownerId: null,
       },
       productRules: {
         productName: [{ required: true, message: "请输入产品名称", trigger: "blur" }],
+        productCode: [{ required: true, message: "请输入产品英文简称", trigger: "blur" }],
         teamName: [{ required: true, message: "请输入所属团队", trigger: "blur" }],
         domainName: [{ required: true, message: "请输入业务领域", trigger: "blur" }],
         ownerId: [{ required: true, message: "请选择负责人", trigger: "change" }],
@@ -95,11 +114,18 @@ export default {
       dialogLoading: false,
     };
   },
+  computed: {
+    selectedProduct() {
+      if (!this.selectedProductId) return null;
+      return this.products.find(p => p.id === this.selectedProductId);
+    }
+  },
   watch: {
     visible(val) {
       if (val) {
         this.fetchProducts();
         this.fetchUserList();
+        this.selectedProductId = null; // 每次打开重置选择
       }
     }
   },
@@ -127,6 +153,9 @@ export default {
         console.error("Failed to fetch user list:", error);
       }
     },
+    handleProductSelect(val) {
+      // 选择产品时的处理，目前通过 computed 属性 selectedProduct 自动处理
+    },
     showCreateDialog() {
       this.dialogVisible = true;
       this.dialogTitle = "创建新产品";
@@ -134,6 +163,7 @@ export default {
       this.productForm = {
         id: null,
         productName: "",
+        productCode: "",
         teamName: "",
         domainName: "",
         ownerId: null,
@@ -160,11 +190,15 @@ export default {
               await updateProduct(this.productForm.id, this.productForm);
               this.$message.success("产品信息更新成功");
             } else {
-              await createProduct(this.productForm);
+              const res = await createProduct(this.productForm);
               this.$message.success("新产品创建成功");
+              // 如果是新建，自动选中新建的产品
+              if (res && res.id) {
+                this.selectedProductId = res.id;
+              }
             }
             this.dialogVisible = false;
-            this.fetchProducts();
+            await this.fetchProducts();
             this.$emit('refresh-data'); // 通知父组件刷新数据
           } catch (error) {
             console.error("Failed to save product:", error);
@@ -177,6 +211,8 @@ export default {
     },
     async initFolders(product) {
       product.initLoading = true;
+      // 强制更新视图以显示 loading 状态
+      this.$forceUpdate();
       try {
         const res = await initProductFolders(product.id);
         this.$message.success(res);
@@ -185,6 +221,7 @@ export default {
         this.$message.error("一键铺底目录失败");
       } finally {
         product.initLoading = false;
+        this.$forceUpdate();
       }
     },
   },
@@ -194,17 +231,43 @@ export default {
 <style scoped>
 .product-mgmt-dialog /deep/ .el-dialog__body {
   padding-top: 10px;
-  padding-bottom: 20px;
+  padding-bottom: 30px;
 }
 
 .dialog-content {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 20px;
 }
 
 .header-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.product-selector {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.selector-label {
+  font-size: 14px;
+  color: #606266;
+  margin-right: 10px;
+  white-space: nowrap;
+}
+
+.product-info-list {
+  margin-top: 10px;
+}
+
+.product-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px dashed #ebeef5;
 }
 </style>

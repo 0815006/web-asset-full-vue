@@ -10,9 +10,21 @@
     <div slot="title" class="preview-header">
       <div class="header-left">
         <i class="el-icon-document"></i>
-        <span class="preview-title" :title="fileData ? fileData.label : ''">
-          {{ fileData ? fileData.label : '文件预览' }}
+        <span class="preview-title" :title="fileData ? (fileData.label || fileData.fileName) : ''">
+          {{ fileData ? (fileData.label || fileData.fileName) : '文件预览' }}
         </span>
+        <!-- 核心文档按钮 -->
+        <el-tooltip 
+          :content="canUpdate ? (isCurated ? '取消核心' : '设为核心') : '核心资产'" 
+          placement="top">
+          <i
+            v-if="canUpdate || isCurated"
+            :class="[isCurated ? 'el-icon-star-on' : 'el-icon-star-off', { 'readonly-icon': !canUpdate }]"
+            class="curated-icon"
+            @click="canUpdate && toggleCurated()">
+          </i>
+        </el-tooltip>
+
         <!-- 收藏按钮 -->
         <el-tooltip :content="isStarred ? '取消收藏' : '收藏文件'" placement="top">
           <i 
@@ -23,7 +35,7 @@
         </el-tooltip>
       </div>
       <div class="header-right">
-        <el-button type="warning" size="small" icon="el-icon-refresh" plain @click="showUpdateDialog">更新</el-button>
+        <el-button v-if="canUpdate" type="warning" size="small" icon="el-icon-refresh" plain @click="showUpdateDialog">更新</el-button>
         <el-button type="primary" size="small" icon="el-icon-download" plain @click="downloadFile">下载</el-button>
         <el-button size="small" :icon="isFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'" @click="toggleFullscreen">
           {{ isFullscreen ? '退出全屏' : '全屏' }}
@@ -61,7 +73,7 @@
       <div class="preview-content">
         <!-- 展示内容顶部标题 (仅针对非 Office 类文档，因为 OnlyOffice 自带标题栏) -->
         <div v-if="fileData && activeType !== 'office' && !fileMissing" class="content-header">
-          <span class="content-title">{{ fileData.label }}</span>
+          <span class="content-title">{{ fileData.label || fileData.fileName }}</span>
         </div>
 
         <div v-if="fileData" :key="fileData.id" class="preview-container">
@@ -71,7 +83,7 @@
             <h3>文件已丢失</h3>
             <p>该文件在服务器物理存储中未找到，请联系管理员核实。</p>
             <div class="file-info-box">
-              <p><strong>文件名：</strong>{{ fileData.label }}</p>
+              <p><strong>文件名：</strong>{{ fileData.label || fileData.fileName }}</p>
               <p><strong>文件 ID：</strong>{{ fileData.id }}</p>
             </div>
           </div>
@@ -117,7 +129,7 @@
 </template>
 
 <script>
-import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile } from '@/api/asset-node'
+import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile, toggleCuratedStatus, getCuratedStatus } from '@/api/asset-node'
 import PdfViewer from './viewers/PdfViewer.vue'
 import ImageViewer from './viewers/ImageViewer.vue'
 import OfficeViewer from './viewers/OfficeViewer.vue'
@@ -151,6 +163,10 @@ export default {
     treeData: {
       type: Array,
       default: () => []
+    },
+    canUpdate: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -166,7 +182,9 @@ export default {
       activeType: '', // 当前正在显示的类型：pdf, image, office, xmind, text
       updateDialogVisible: false,
       isStarred: false,
-      lastRecordedId: null // 记录上次成功记录阅读状态的文件ID
+      isCurated: false, // New data property for curated status
+      lastRecordedId: null, // 记录上次成功记录阅读状态的文件ID
+      currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
     }
   },
   computed: {
@@ -217,7 +235,10 @@ export default {
     },
     previewUrl() {
       if (!this.fileData) return '';
-      return `/api/assets/${this.fileData.id}/view`;
+      const userId = this.currentUser.id;
+      const token = localStorage.getItem('token');
+      const tokenParam = token ? `&token=${token}` : '';
+      return `/api/assets/${this.fileData.id}/view?userId=${userId}${tokenParam}`;
     },
     absoluteFileUrl() {
       if (!this.fileData) return '';
@@ -225,9 +246,10 @@ export default {
       // 假设后端运行在宿主机的 8081 端口。
       // 在 Docker 容器内访问宿主机可以使用 host.docker.internal (Windows/Mac)
       const baseUrl = process.env.VUE_APP_BACKEND_API_BASE || 'http://host.docker.internal:8081';
+      const userId = this.currentUser.id;
       const token = localStorage.getItem('token');
-      const tokenParam = token ? `?token=${token}` : '';
-      return `${baseUrl}/api/assets/${this.fileData.id}/view${tokenParam}`;
+      const tokenParam = token ? `&token=${token}` : '';
+      return `${baseUrl}/api/assets/${this.fileData.id}/view?userId=${userId}${tokenParam}`;
     }
   },
   watch: {
@@ -253,8 +275,13 @@ export default {
       // 1. 销毁所有旧的编辑器/查看器
       this.activeType = '';
       
-      // 2. 设置收藏状态
+      // 2. 设置收藏和核心状态
       this.isStarred = !!this.fileData.isStarred;
+      // 如果后端返回了 currentUserStarred 字段，优先使用
+      if (this.fileData.currentUserStarred !== undefined) {
+        this.isStarred = !!this.fileData.currentUserStarred;
+      }
+      this.getCuratedStatus();
 
       // 3. 自动展开目录树
       if (this.fileData.treePath && typeof this.fileData.treePath === 'string') {
@@ -299,7 +326,7 @@ export default {
     async recordRead() {
       if (!this.fileData || this.lastRecordedId === this.fileData.id) return;
       try {
-        await recordReadState({ file_id: this.fileData.id, user_id: 2 }); // 假设用户ID为2
+        await recordReadState({ file_id: this.fileData.id, user_id: this.currentUser.id });
         this.lastRecordedId = this.fileData.id;
         // 更新 Vuex 中的状态，实现秒级消除
         if (this.$store) {
@@ -312,17 +339,23 @@ export default {
     async toggleStar() {
       if (!this.fileData) return;
       const fileId = this.fileData.id;
-      const userId = 2; // 假设用户ID为2
+      const userId = this.currentUser.id;
       try {
         if (this.isStarred) {
           await unstarFile(fileId, { userId });
           this.isStarred = false;
-          if (this.fileData) this.fileData.isStarred = false;
+          if (this.fileData) {
+            this.fileData.isStarred = false;
+            this.fileData.currentUserStarred = false;
+          }
           this.$message.success('已取消收藏');
         } else {
           await starFile(fileId, { userId });
           this.isStarred = true;
-          if (this.fileData) this.fileData.isStarred = true;
+          if (this.fileData) {
+            this.fileData.isStarred = true;
+            this.fileData.currentUserStarred = true;
+          }
           this.$message.success('收藏成功');
         }
         // 通知父组件更新数据（可选，用于同步列表状态）
@@ -330,6 +363,17 @@ export default {
       } catch (error) {
         console.error('Toggle star failed', error);
         this.$message.error('操作失败');
+      }
+    },
+    async getCuratedStatus() {
+      if (!this.fileData) return;
+      const fileId = this.fileData.id;
+      const productId = this.fileData.productId || 0;
+      try {
+        const res = await getCuratedStatus({ fileId, productId });
+        this.isCurated = res.isCurated;
+      } catch (error) {
+        console.error('Get curated status failed', error);
       }
     },
     async checkFileExistence() {
@@ -414,9 +458,10 @@ export default {
       if (!this.fileData) return;
       
       // 直接通过浏览器下载单个文件，不打成压缩包
+      const userId = this.currentUser.id;
       const token = localStorage.getItem('token');
       const tokenParam = token ? `&token=${token}` : '';
-      const downloadUrl = `${this.previewUrl}?download=true${tokenParam}`;
+      const downloadUrl = `/api/assets/${this.fileData.id}/view?download=true&userId=${userId}${tokenParam}`;
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.setAttribute('download', this.fileData.label);
@@ -432,6 +477,19 @@ export default {
     handleUpdateSuccess(res) {
       // 刷新当前预览
       this.$emit('node-click', { ...this.fileData, ...res });
+    },
+    async toggleCurated() {
+      if (!this.fileData) return;
+      const fileId = this.fileData.id;
+      const productId = this.fileData.productId || 0;
+      try {
+        await toggleCuratedStatus({ fileId, productId, isCurated: !this.isCurated });
+        this.isCurated = !this.isCurated;
+        this.$message.success(this.isCurated ? '已设为核心文档' : '已取消核心文档');
+      } catch (error) {
+        console.error('Toggle curated status failed', error);
+        this.$message.error('操作失败');
+      }
     }
   }
 }
@@ -509,6 +567,30 @@ export default {
 }
 
 .star-icon:hover {
+  transform: scale(1.2);
+}
+
+.curated-icon {
+  margin-left: 12px;
+  font-size: 20px;
+  cursor: pointer;
+  color: #c0c4cc;
+  transition: all 0.3s;
+}
+
+.curated-icon.el-icon-star-on {
+  color: #f56c6c;
+}
+
+.curated-icon.readonly-icon {
+  cursor: default;
+}
+
+.curated-icon.readonly-icon:hover {
+  transform: none;
+}
+
+.curated-icon:hover:not(.readonly-icon) {
   transform: scale(1.2);
 }
 

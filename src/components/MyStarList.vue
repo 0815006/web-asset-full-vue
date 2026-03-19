@@ -34,6 +34,7 @@ export default {
   data() {
     return {
       starredFiles: [],
+      currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
     };
   },
   created() {
@@ -42,7 +43,7 @@ export default {
   methods: {
     async fetchMyStarredFiles() {
       try {
-        const res = await getMyStarredFiles({ userId: 2, page: 1, size: 20 });
+        const res = await getMyStarredFiles({ userId: this.currentUser.id, page: 1, size: 20 });
         this.starredFiles = res || [];
       } catch (error) {
         console.error("Failed to fetch starred files:", error);
@@ -54,7 +55,7 @@ export default {
     },
     async togglePin(item) {
       try {
-        await pinFileApi(item.id, { userId: 2, pin: !item.isPinned });
+        await pinFileApi(item.id, { userId: this.currentUser.id, pin: !item.isPinned });
         this.$message.success(item.isPinned ? "已取消置顶" : "置顶成功");
         this.fetchMyStarredFiles();
       } catch (error) {
@@ -64,7 +65,7 @@ export default {
     },
     async unstarFile(item) {
       try {
-        await unstarFileApi(item.id, { userId: 2 });
+        await unstarFileApi(item.id, { userId: this.currentUser.id });
         this.$message.success("已取消收藏");
         this.fetchMyStarredFiles();
       } catch (error) {

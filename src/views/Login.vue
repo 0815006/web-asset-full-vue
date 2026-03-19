@@ -2,14 +2,14 @@
   <div class="login-container">
     <el-card class="login-card">
       <div slot="header" class="login-header">
-        <h2>资产管理系统</h2>
+        <h2>测试资产库系统</h2>
         <p>请登录您的账号</p>
       </div>
       <el-form :model="loginForm" :rules="loginRules" ref="loginForm" @submit.native.prevent="handleLogin">
         <el-form-item prop="username">
           <el-input 
             v-model="loginForm.username" 
-            placeholder="用户名" 
+            placeholder="用户名：员工号" 
             prefix-icon="el-icon-user">
           </el-input>
         </el-form-item>
@@ -17,7 +17,7 @@
           <el-input 
             v-model="loginForm.password" 
             type="password" 
-            placeholder="密码" 
+            placeholder="默认密码：ILike88Door" 
             prefix-icon="el-icon-lock"
             show-password>
           </el-input>

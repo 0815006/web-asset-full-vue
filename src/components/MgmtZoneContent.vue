@@ -4,6 +4,7 @@
       <span>测试管理专区</span>
       <div class="header-actions">
         <el-button 
+          v-if="canManage"
           type="primary" 
           size="small" 
           icon="el-icon-upload2" 
@@ -34,7 +35,7 @@
             <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
             {{ node.label }}
           </span>
-          <span class="node-actions" v-if="data.nodeType === 1">
+          <span class="node-actions" v-if="data.nodeType === 1 && canManage">
             <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(node, data)">新建子目录</el-button>
           </span>
         </span>
@@ -153,7 +154,13 @@ export default {
         }
       },
       fileList: [],
-      uploadCategoryOptions: []
+      uploadCategoryOptions: [],
+      currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
+    }
+  },
+  computed: {
+    canManage() {
+      return this.currentUser && (this.currentUser.roleType === 1 || this.currentUser.roleType === 2);
     }
   },
   watch: {

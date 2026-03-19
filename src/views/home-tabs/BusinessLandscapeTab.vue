@@ -9,11 +9,11 @@
       
       <div class="admin-actions" v-if="isSuperAdmin">
         <el-button
-          type="primary"
+          type="warning"
           size="small"
           icon="el-icon-setting"
           plain
-          @click="showProductMgmt">维护产品</el-button>
+          @click="showProductMgmt">维护产品信息</el-button>
         <el-button
           type="warning"
           size="small"
@@ -91,10 +91,6 @@ export default {
     MgmtZoneContent
   },
   props: {
-    isSuperAdmin: {
-      type: Boolean,
-      default: false
-    },
     products: {
       type: Array,
       default: () => []
@@ -145,7 +141,13 @@ export default {
       zoneViewMode: 'tech',
       techSearchQuery: '',
       mgmtSearchQuery: '',
-      viewMode: 'tile'
+      viewMode: 'tile',
+      currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
+    }
+  },
+  computed: {
+    isSuperAdmin() {
+      return this.currentUser && this.currentUser.roleType === 1;
     }
   },
   methods: {

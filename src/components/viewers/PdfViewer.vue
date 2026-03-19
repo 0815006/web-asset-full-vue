@@ -21,9 +21,7 @@ export default {
   },
   computed: {
     pdfUrl() {
-      const token = localStorage.getItem('token');
-      const tokenParam = token ? `?token=${token}` : '';
-      return `${this.url}${tokenParam}`;
+      return this.url;
     }
   }
 }

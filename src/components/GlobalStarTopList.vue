@@ -34,7 +34,8 @@ export default {
         const fileIds = (res || []).map(item => JSON.parse(JSON.stringify(item)).file_id);
 
         if (fileIds.length > 0) {
-          const details = await getBatchDetails(fileIds); // Call to get file details
+          const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}');
+          const details = await getBatchDetails({ ids: fileIds, userId: currentUser.id }); // Call to get file details
           const detailMap = (details || []).reduce((acc, curr) => {
             acc[curr.id] = curr;
             return acc;

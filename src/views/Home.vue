@@ -42,6 +42,7 @@
       :title="currentPreviewTitle"
       :file-data="currentPreviewFile"
       :tree-data="currentPreviewTree"
+      :can-update="canUpdatePreviewedFile"
       @node-click="handlePreviewNodeClick"
       @star-change="handleStarChange">
     </super-preview>
@@ -163,6 +164,35 @@ export default {
         acc[product.domainName].push(product);
         return acc;
       }, {});
+    },
+    canUpdatePreviewedFile() {
+      if (!this.currentUser || !this.currentUser.roleType) {
+        return false;
+      }
+
+      const isSuperAdmin = this.currentUser.roleType === 1;
+      if (isSuperAdmin) return true;
+
+      const isZoneAdmin = this.currentUser.roleType === 2;
+      const file = this.currentPreviewFile;
+
+      if (!file) return false;
+
+      // Product file logic
+      if (file.productId && file.productId !== 0) {
+        const product = this.products.find(p => p.id === file.productId);
+        if (product) {
+          const isProductOwner = this.currentUser.userName === product.owner;
+          return isProductOwner;
+        }
+      }
+
+      // Tech/Mgmt zone file logic
+      if (file.zone_type === 'tech' || file.zone_type === 'mgmt') {
+        return isZoneAdmin;
+      }
+
+      return false;
     }
   },
   watch: {
@@ -249,27 +279,40 @@ export default {
     goToProduct(id) {
       this.$router.push(`/product/${id}`);
     },
-    handleNodeClick(data, zoneType) {
+    async handleNodeClick(data, zoneType) {
       if (data.nodeType === 2) {
-        let treeData = [];
-        let title = '';
-        if (zoneType === 'tech') {
-          treeData = this.techTreeData;
-          title = '测试技术及工艺专区';
-        } else {
-          treeData = this.mgmtTreeData;
-          title = '测试管理专区';
+        this.loading = true;
+        try {
+          const fileDetails = await getAssetDetails(data.id, { userId: this.currentUser.id });
+          const fullData = { ...data, ...fileDetails };
+          
+          let treeData = [];
+          let title = '';
+          if (zoneType === 'tech') {
+            treeData = this.techTreeData;
+            title = '测试技术及工艺专区';
+          } else {
+            treeData = this.mgmtTreeData;
+            title = '测试管理专区';
+          }
+          this.currentPreviewTree = treeData;
+          this.currentPreviewTitle = title;
+          this.currentPreviewFile = fullData;
+          this.previewVisible = true;
+        } catch (e) {
+          console.error('Failed to get file details:', e);
+          // Fallback to basic data
+          this.currentPreviewFile = data;
+          this.previewVisible = true;
+        } finally {
+          this.loading = false;
         }
-        this.currentPreviewTree = treeData;
-        this.currentPreviewTitle = title;
-        this.currentPreviewFile = data;
-        this.previewVisible = true;
       }
     },
     async handlePreviewNodeClick(data) {
       if (data.nodeType === 2) {
         try {
-          const fileDetails = await getAssetDetails(data.id);
+          const fileDetails = await getAssetDetails(data.id, { userId: this.currentUser.id });
           this.currentPreviewFile = { ...data, ...fileDetails };
         } catch (e) {
           this.currentPreviewFile = data;
@@ -339,7 +382,7 @@ export default {
 
       this.loading = true;
       try {
-        const fileDetails = await getAssetDetails(data.id);
+        const fileDetails = await getAssetDetails(data.id, { userId: this.currentUser.id });
         const fullData = {
           ...data,
           ...fileDetails,

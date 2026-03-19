@@ -15,30 +15,17 @@
 </template>
 
 <script>
-import { getRecentAccessedFiles } from "@/api/asset-node";
 import moment from 'moment';
 
 export default {
   name: "RecentAccessList",
-  data() {
-    return {
-      recentFiles: [],
-    };
-  },
-  created() {
-    this.fetchRecentAccessedFiles();
+  props: {
+    recentFiles: {
+      type: Array,
+      default: () => [],
+    },
   },
   methods: {
-    async fetchRecentAccessedFiles() {
-      try {
-        // 假设当前用户ID为2，实际应从store获取
-        const res = await getRecentAccessedFiles({ userId: 2, page: 1, size: 10 });
-        this.recentFiles = res || [];
-      } catch (error) {
-        console.error("Failed to fetch recent accessed files:", error);
-        this.$message.error("获取最近访问列表失败");
-      }
-    },
     handleItemClick(item) {
       this.$emit("node-click", item);
     },

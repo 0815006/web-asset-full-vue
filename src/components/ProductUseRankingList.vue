@@ -1,38 +1,51 @@
 <template>
-  <div class="global-use-top-list">
-    <div v-if="topList.length === 0" class="empty-text">暂无数据</div>
+  <div class="product-use-ranking-list global-use-top-list">
+    <div v-if="rankingList.length === 0" class="empty-text">暂无使用排行数据</div>
     <ul class="file-list">
-      <li v-for="(item, index) in topList" :key="item.id" class="file-item" @click="handleItemClick(item)">
+      <li v-for="(item, index) in rankingList" :key="item.id" class="file-item" @click="handleItemClick(item)">
         <div class="file-info">
           <span class="rank-num" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
           <i :class="getIconClass(item)"></i>
           <span class="file-name" :title="item.fileName">{{ item.fileName }}</span>
         </div>
-        <span class="use-count">{{ item.use_count }} 次访问</span>
+        <span class="use-count">{{ item.useCount }} 次访问</span>
       </li>
     </ul>
   </div>
 </template>
 
 <script>
-import { getGlobalUseTop } from '@/api/search';
+import { getProductUseRanking } from '@/api/asset-node'; // Assuming this API will be added
 import { getBatchDetails } from '@/api/asset-node';
 
 export default {
-  name: 'GlobalUseTopList',
+  name: 'ProductUseRankingList',
+  props: {
+    productId: {
+      type: [String, Number],
+      required: true
+    }
+  },
   data() {
     return {
-      topList: []
+      rankingList: []
     };
   },
-  created() {
-    this.fetchGlobalUseTop();
+  watch: {
+    productId: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal) {
+          this.fetchProductUseRanking();
+        }
+      }
+    }
   },
   methods: {
-    async fetchGlobalUseTop() {
+    async fetchProductUseRanking() {
       try {
-        const res = await getGlobalUseTop();
-        const fileIds = (res || []).map(item => item.file_id);
+        const res = await getProductUseRanking(this.productId);
+        const fileIds = (res || []).map(item => item.fileId);
         if (fileIds.length > 0) {
           const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}');
           const details = await getBatchDetails({ ids: fileIds, userId: currentUser.id });
@@ -41,16 +54,16 @@ export default {
             return acc;
           }, {});
 
-          this.topList = (res || []).map(item => ({
+          this.rankingList = (res || []).map(item => ({
             ...item,
-            ...(detailMap[item.file_id] || { fileName: `未知文件(${item.file_id})` })
-          })).filter(item => detailMap[item.file_id]).slice(0, 10); // 只显示存在的，且最多10条
+            ...(detailMap[item.fileId] || { fileName: `未知文件(${item.fileId})` })
+          })).filter(item => detailMap[item.fileId]).slice(0, 10); // 只显示存在的，且最多10条
         } else {
-          this.topList = [];
+          this.rankingList = [];
         }
       } catch (error) {
-        console.error("Failed to fetch global use top list:", error);
-        this.$message.error("获取访问排行榜失败");
+        console.error("Failed to fetch product use ranking:", error);
+        this.$message.error("获取产品使用排行失败");
       }
     },
     handleItemClick(item) {
@@ -79,7 +92,9 @@ export default {
 </script>
 
 <style scoped>
-.global-use-top-list {
+@import '../assets/global.css'; /* 引入全局样式，确保图标颜色等一致 */
+
+.product-use-ranking-list {
   padding: 5px 0;
 }
 

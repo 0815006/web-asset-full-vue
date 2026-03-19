@@ -25,10 +25,10 @@
       </div>
 
       <div class="main-content">
-        <el-row :gutter="20">
-          <!-- 左侧：产品画像与知识图谱 -->
+        <!-- 第一行：产品画像 + 核心资产 -->
+        <el-row :gutter="20" class="top-row">
           <el-col :span="8">
-            <el-card class="box-card profile-card">
+            <el-card class="box-card profile-card equal-height">
               <div slot="header" class="clearfix">
                 <span>产品画像</span>
                 <el-tag size="small" style="float: right;">{{ product.status }}</el-tag>
@@ -36,7 +36,7 @@
               <div class="profile-info">
                 <div class="info-item">
                   <span class="label">产品名称：</span>
-                  <span class="value">{{ product.name }}</span>
+                  <span class="value">{{ product.name }} <span v-if="product.code" class="product-code">({{ product.code }})</span></span>
                 </div>
                 <div class="info-item">
                   <span class="label">所属团队：</span>
@@ -60,36 +60,36 @@
                 </div>
               </div>
             </el-card>
-
-            <el-card class="box-card graph-card" style="margin-top: 20px;">
+          </el-col>
+          <el-col :span="16">
+            <el-card class="box-card curated-card equal-height">
               <div slot="header" class="clearfix">
-                <span>知识图谱</span>
+                <span>产品核心资产</span>
+                <el-tag size="small" style="float: right;">新人必读</el-tag>
               </div>
-              <div class="graph-container">
-                <!-- 模拟知识图谱可视化 -->
-                <div class="mock-graph">
-                  <div class="node center-node">{{ product.name }}</div>
-                  <div class="node sub-node node-1">核心系统</div>
-                  <div class="node sub-node node-2">支付网关</div>
-                  <div class="node sub-node node-3">风控引擎</div>
-                  <svg class="lines">
-                    <line x1="50%" y1="50%" x2="20%" y2="20%" stroke="#409EFF" stroke-width="2"/>
-                    <line x1="50%" y1="50%" x2="80%" y2="30%" stroke="#409EFF" stroke-width="2"/>
-                    <line x1="50%" y1="50%" x2="50%" y2="80%" stroke="#409EFF" stroke-width="2"/>
-                  </svg>
-                </div>
-              </div>
+              <product-curated-asset-list :product-id="product.id" @node-click="handleCuratedAssetClick" />
             </el-card>
           </el-col>
+        </el-row>
 
-          <!-- 右侧：文档资产库 -->
+        <!-- 第二行：使用榜 + 资产库 -->
+        <el-row :gutter="20" class="middle-row">
+          <el-col :span="8">
+            <el-card class="box-card ranking-card">
+              <div slot="header" class="clearfix">
+                <span>产品使用榜</span>
+                <el-tag size="small" style="float: right;">活跃度排行</el-tag>
+              </div>
+              <product-use-ranking-list :product-id="product.id" @node-click="handleUseRankingClick" />
+            </el-card>
+          </el-col>
           <el-col :span="16">
             <el-card class="box-card assets-card">
               <div slot="header" class="clearfix assets-header">
                 <span>文档资产库</span>
                 <div class="actions">
-                  <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog" v-if="canUpload">上传文档</el-button>
-                  <el-button size="small" icon="el-icon-download" @click="batchDownload" v-if="canDownload">打包下载</el-button>
+                  <el-button type="primary" size="small" icon="el-icon-upload2" @click="showUploadDialog" v-if="hasEditPermission">上传文档</el-button>
+                  <el-button size="small" icon="el-icon-download" @click="batchDownload" v-if="hasEditPermission">打包下载</el-button>
                 </div>
               </div>
 
@@ -102,7 +102,7 @@
                 node-key="id"
                 lazy
                 :load="loadNode"
-                show-checkbox
+                :show-checkbox="hasEditPermission"
                 @node-click="handleNodeClick"
                 class="custom-tree">
                 <span class="custom-tree-node" slot-scope="{ node, data }">
@@ -110,11 +110,21 @@
                     <i :class="data.nodeType === 1 ? 'el-icon-folder' : 'el-icon-document'"></i>
                     <span>{{ node.label }}</span>
                   </span>
-                  <span class="node-actions" v-if="data.nodeType === 1 && data.currentUserPermission && data.currentUserPermission.can_upload">
+                  <span class="node-actions" v-if="data.nodeType === 1 && hasEditPermission">
                     <el-button type="text" size="mini" icon="el-icon-plus" @click.stop="addSubCategory(node, data)">新建子分类</el-button>
                   </span>
                 </span>
               </el-tree>
+            </el-card>
+
+            <!-- 知识图谱：放在资产库下方，右侧对齐 -->
+            <el-card class="box-card graph-card" style="margin-top: 20px;">
+              <div slot="header" class="clearfix">
+                <span>知识图谱</span>
+              </div>
+              <div class="graph-container">
+                <el-empty description="知识图谱功能待实现"></el-empty>
+              </div>
             </el-card>
           </el-col>
         </el-row>
@@ -185,6 +195,7 @@
       :title="product.name"
       :file-data="currentPreviewFile"
       :tree-data="assetTreeData"
+      :can-update="hasEditPermission"
       @node-click="handlePreviewNodeClick">
     </super-preview>
 
@@ -202,6 +213,8 @@
 import MainHeader from '../components/MainHeader.vue'
 import SuperPreview from '../components/SuperPreview.vue'
 import SearchResultDialog from '../components/SearchResultDialog.vue'
+import ProductCuratedAssetList from '../components/ProductCuratedAssetList.vue'
+import ProductUseRankingList from '../components/ProductUseRankingList.vue'
 import { getProductList } from '@/api/product'
 import { getAssetTree, uploadFile, createFolder, downloadAssets, getAssetDetails } from '@/api/asset-node'
 import { search } from '@/api/search'
@@ -211,7 +224,9 @@ export default {
   components: {
     MainHeader,
     SuperPreview,
-    SearchResultDialog
+    SearchResultDialog,
+    ProductCuratedAssetList,
+    ProductUseRankingList
   },
   data() {
     return {
@@ -224,10 +239,13 @@ export default {
       searchResultVisible: false,
       currentSearchQuery: '',
       searchResults: [],
+      curatedAssets: [], // New data property for curated assets
+      useRanking: [],    // New data property for use ranking
       
       product: {
         id: this.$route.params.id,
         name: '加载中...',
+        code: '',
         team: '',
         domain: '',
         owner: '',
@@ -267,9 +285,15 @@ export default {
       
       assetTreeData: [],
       treeKey: 0,
-      
-      canUpload: true, // Mock permission
-      canDownload: true, // Mock permission
+      currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
+    }
+  },
+  computed: {
+    hasEditPermission() {
+      const isSuperAdmin = this.currentUser && this.currentUser.roleType === 1;
+      // Assuming the user object from localStorage has a 'userName' property that matches product.owner
+      const isProductOwner = this.currentUser && this.product.owner && this.currentUser.userName === this.product.owner;
+      return isSuperAdmin || isProductOwner;
     }
   },
   created() {
@@ -309,6 +333,7 @@ export default {
             this.product = {
               id: productData.id,
               name: productData.productName,
+              code: productData.productCode,
               team: productData.teamName,
               domain: productData.domainName,
               owner: productData.ownerName || 'Unknown',
@@ -359,17 +384,28 @@ export default {
       if (!value) return true;
       return data.label.indexOf(value) !== -1;
     },
-    handleNodeClick(data) {
+    async handleNodeClick(data) {
       if (data.nodeType === 2) {
-        this.currentPreviewFile = data;
-        this.previewVisible = true;
+        this.loading = true;
+        try {
+          const fileDetails = await getAssetDetails(data.id, { userId: this.currentUser.id });
+          this.currentPreviewFile = { ...data, ...fileDetails };
+          this.previewVisible = true;
+        } catch (e) {
+          console.error('Failed to get file details:', e);
+          this.currentPreviewFile = data;
+          this.previewVisible = true;
+        } finally {
+          this.loading = false;
+        }
       }
     },
     async handlePreviewNodeClick(data) {
       if (data.nodeType === 2) {
         try {
-          const fileDetails = await getAssetDetails(data.id);
+          const fileDetails = await getAssetDetails(data.id, { userId: this.currentUser.id });
           this.currentPreviewFile = { ...data, ...fileDetails };
+          this.previewVisible = true;
         } catch (e) {
           this.currentPreviewFile = data;
         }
@@ -552,12 +588,48 @@ export default {
     async handleSearchResultClick(item) {
       this.loading = true;
       try {
-        const fileDetails = await getAssetDetails(item.id);
+        const fileDetails = await getAssetDetails(item.id, { userId: this.currentUser.id });
         this.currentPreviewFile = { ...item, ...fileDetails };
         this.previewVisible = true;
       } catch (error) {
         console.error('Failed to get file details for preview:', error);
         this.$message.error('无法加载文件预览，请重试');
+      } finally {
+        this.loading = false;
+      }
+    },
+    // New method for handling curated asset clicks
+    async handleCuratedAssetClick(item) {
+      this.loading = true;
+      try {
+        const fileDetails = await getAssetDetails(item.fileId, { userId: this.currentUser.id });
+        this.currentPreviewFile = { 
+          ...item, 
+          ...fileDetails,
+          label: fileDetails.fileName || item.fileName 
+        };
+        this.previewVisible = true;
+      } catch (error) {
+        console.error('Failed to get curated asset details for preview:', error);
+        this.$message.error('无法加载核心资产预览，请重试');
+      } finally {
+        this.loading = false;
+      }
+    },
+    // New method for handling use ranking clicks
+    async handleUseRankingClick(item) {
+      this.loading = true;
+      try {
+        const fileDetails = await getAssetDetails(item.fileId, { userId: this.currentUser.id });
+        this.currentPreviewFile = { 
+          ...item, 
+          ...fileDetails,
+          label: fileDetails.fileName || item.fileName 
+        };
+        this.previewVisible = true;
+      } catch (error) {
+        console.error('Failed to get use ranking item details for preview:', error);
+        this.$message.error('无法加载使用排行项预览，请重试');
       } finally {
         this.loading = false;
       }
@@ -585,6 +657,34 @@ export default {
   margin-bottom: 24px;
 }
 
+.top-row {
+  margin-bottom: 20px;
+  display: flex;
+}
+
+.middle-row {
+  margin-bottom: 20px;
+}
+
+.equal-height {
+  height: 350px; /* 调整为 350px 以匹配画像内容高度 */
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.curated-card /deep/ .el-card__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 15px; /* 减小上下内边距 */
+}
+
+.profile-card /deep/ .el-card__body {
+  flex: 1;
+  overflow-y: hidden;
+  padding: 15px;
+}
+
 .breadcrumb {
   font-size: 16px;
 }
@@ -600,14 +700,19 @@ export default {
 
 .profile-info {
   font-size: 14px;
-  line-height: 2;
 }
 
 .info-item {
   display: flex;
-  margin-bottom: 12px;
+  align-items: center;
+  padding: 10px 0; /* 调整内边距以匹配排行榜行高 */
   border-bottom: 1px dashed #ebeef5;
-  padding-bottom: 8px;
+  height: 42px; /* 固定行高 */
+  box-sizing: border-box;
+}
+
+.info-item:last-child {
+  border-bottom: none;
 }
 
 .info-item .label {
@@ -624,6 +729,13 @@ export default {
   color: #409EFF;
   font-weight: bold;
   font-size: 16px;
+}
+
+.product-code {
+  color: #909399;
+  font-weight: normal;
+  font-size: 13px;
+  margin-left: 5px;
 }
 
 .assets-header {
@@ -659,53 +771,12 @@ export default {
 }
 
 .graph-container {
-  height: 300px;
-  position: relative;
+  min-height: 20px; /* 高度减半 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
   background-color: #f8f9fa;
   border-radius: 4px;
-  overflow: hidden;
-}
-
-.mock-graph {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.node {
-  position: absolute;
-  padding: 10px 15px;
-  border-radius: 20px;
-  background-color: #fff;
-  border: 2px solid #409EFF;
-  color: #303133;
-  font-size: 13px;
-  font-weight: bold;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  z-index: 2;
-  transform: translate(-50%, -50%);
-}
-
-.center-node {
-  top: 50%;
-  left: 50%;
-  background-color: #409EFF;
-  color: #fff;
-  font-size: 15px;
-  padding: 15px 20px;
-}
-
-.node-1 { top: 20%; left: 20%; }
-.node-2 { top: 30%; left: 80%; }
-.node-3 { top: 80%; left: 50%; }
-
-.lines {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
 }
 </style>
 

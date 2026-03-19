@@ -26,6 +26,7 @@
           </i>
         </div>
         <div class="product-card-body">
+          <p><strong>英文简称:</strong> {{ product.productCode || '-' }}</p>
           <p><strong>团队:</strong> {{ product.teamName }}</p>
           <p><strong>领域:</strong> {{ product.domainName }}</p>
           <p><strong>资产数:</strong> {{ product.assetCount }}</p>
@@ -47,6 +48,7 @@
               </i>
             </div>
             <div class="product-card-body">
+              <p><strong>英文简称:</strong> {{ product.productCode || '-' }}</p>
               <p><strong>领域:</strong> {{ product.domainName }}</p>
               <p><strong>资产数:</strong> {{ product.assetCount }}</p>
               <p><strong>更新时间:</strong> {{ product.updatedAt | formatDate }}</p>
@@ -69,6 +71,7 @@
               </i>
             </div>
             <div class="product-card-body">
+              <p><strong>英文简称:</strong> {{ product.productCode || '-' }}</p>
               <p><strong>团队:</strong> {{ product.teamName }}</p>
               <p><strong>资产数:</strong> {{ product.assetCount }}</p>
               <p><strong>更新时间:</strong> {{ product.updatedAt | formatDate }}</p>

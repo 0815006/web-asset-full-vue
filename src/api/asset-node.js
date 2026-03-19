@@ -89,10 +89,11 @@ export function downloadAssets(data) {
   })
 }
 
-export function getAssetDetails(id) {
+export function getAssetDetails(id, params) {
   return request({
     url: `/api/assets/${id}/details`,
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 
@@ -171,6 +172,36 @@ export function getProductUseTop(productId, params) {
 export function getRecentAccessedFiles(params) {
   return request({
     url: '/api/assets/recent-access',
+    method: 'get',
+    params
+  })
+}
+
+export function getProductCuratedAssets(productId) {
+  return request({
+    url: `/api/assets/product/${productId}/curated-assets`,
+    method: 'get'
+  })
+}
+
+export function getProductUseRanking(productId) {
+  return request({
+    url: `/api/assets/product/${productId}/use-ranking`,
+    method: 'get'
+  })
+}
+
+export function toggleCuratedStatus(data) {
+  return request({
+    url: '/api/assets/curated',
+    method: 'post',
+    data
+  })
+}
+
+export function getCuratedStatus(params) {
+  return request({
+    url: '/api/assets/curated/status',
     method: 'get',
     params
   })
