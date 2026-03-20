@@ -206,3 +206,45 @@ export function getCuratedStatus(params) {
     params
   })
 }
+
+export function getRecycleBin() {
+  return request({
+    url: '/api/assets/recycle-bin',
+    method: 'get'
+  })
+}
+
+export function restoreAsset(id) {
+  return request({
+    url: `/api/assets/${id}/restore`,
+    method: 'post'
+  })
+}
+
+export function permanentDeleteAsset(id) {
+  return request({
+    url: `/api/assets/${id}/permanent`,
+    method: 'delete'
+  })
+}
+
+export function restoreAllAssets() {
+  return request({
+    url: '/api/assets/restore-all',
+    method: 'post'
+  })
+}
+
+export function permanentDeleteAllAssets() {
+  return request({
+    url: '/api/assets/permanent-all',
+    method: 'delete'
+  })
+}
+
+export function getBatchProgress(taskId) {
+  return request({
+    url: `/api/assets/batch-progress/${taskId}`,
+    method: 'get'
+  })
+}

@@ -25,6 +25,7 @@
           @show-product-mgmt="productMgmtVisible = true"
           @show-health-check="healthCheckVisible = true"
           @show-index-health-check="indexHealthCheckVisible = true"
+          @show-recycle-bin="recycleBinVisible = true"
           @search="performSearch"
           @node-click="handleNodeClick"
           @toggle-favorite-success="handleToggleFavoriteSuccess"
@@ -44,7 +45,8 @@
       :tree-data="currentPreviewTree"
       :can-update="canUpdatePreviewedFile"
       @node-click="handlePreviewNodeClick"
-      @star-change="handleStarChange">
+      @star-change="handleStarChange"
+      @delete-success="fetchData">
     </super-preview>
 
     <!-- 搜索结果弹窗 -->
@@ -70,6 +72,12 @@
       :visible.sync="productMgmtVisible"
       @refresh-data="fetchData">
     </product-mgmt-dialog>
+
+    <!-- 回收站弹窗 -->
+    <recycle-bin-dialog
+      :visible.sync="recycleBinVisible"
+      @refresh-data="fetchData">
+    </recycle-bin-dialog>
   </div>
 </template>
 
@@ -80,6 +88,7 @@ import SearchResultDialog from '../components/SearchResultDialog.vue'
 import StorageHealthCheckDialog from '../components/StorageHealthCheckDialog.vue'
 import IndexHealthCheckDialog from '../components/IndexHealthCheckDialog.vue'
 import ProductMgmtDialog from '../components/ProductMgmtDialog.vue'
+import RecycleBinDialog from '../components/RecycleBinDialog.vue'
 
 // New tab components
 import SearchFirstTab from './home-tabs/SearchFirstTab.vue'
@@ -100,6 +109,7 @@ export default {
     StorageHealthCheckDialog,
     IndexHealthCheckDialog,
     ProductMgmtDialog,
+    RecycleBinDialog,
     SearchFirstTab,
     BusinessLandscapeTab,
     RelationshipGraphTab,
@@ -112,6 +122,7 @@ export default {
       healthCheckVisible: false,
       indexHealthCheckVisible: false,
       productMgmtVisible: false,
+      recycleBinVisible: false,
       currentPreviewFile: null,
       currentPreviewTree: [],
       currentPreviewTitle: '',

@@ -26,6 +26,12 @@
           icon="el-icon-search"
           plain
           @click="showIndexHealthCheck">索引健康检查</el-button>
+        <el-button
+          type="danger"
+          size="small"
+          icon="el-icon-delete"
+          plain
+          @click="showRecycleBin">回收站</el-button>
       </div>
     </div>
 
@@ -159,6 +165,9 @@ export default {
     },
     showIndexHealthCheck() {
       this.$emit('show-index-health-check');
+    },
+    showRecycleBin() {
+      this.$emit('show-recycle-bin');
     },
     performSearch(query, scope) {
       this.$emit('search', query, scope);

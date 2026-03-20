@@ -35,6 +35,7 @@
         </el-tooltip>
       </div>
       <div class="header-right">
+        <el-button v-if="canUpdate" type="danger" size="small" icon="el-icon-delete" plain @click="handleDelete">删除</el-button>
         <el-button v-if="canUpdate" type="warning" size="small" icon="el-icon-refresh" plain @click="showUpdateDialog">更新</el-button>
         <el-button type="primary" size="small" icon="el-icon-download" plain @click="downloadFile">下载</el-button>
         <el-button size="small" :icon="isFullscreen ? 'el-icon-copy-document' : 'el-icon-full-screen'" @click="toggleFullscreen">
@@ -129,7 +130,7 @@
 </template>
 
 <script>
-import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile, toggleCuratedStatus, getCuratedStatus } from '@/api/asset-node'
+import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile, toggleCuratedStatus, getCuratedStatus, deleteAsset } from '@/api/asset-node'
 import PdfViewer from './viewers/PdfViewer.vue'
 import ImageViewer from './viewers/ImageViewer.vue'
 import OfficeViewer from './viewers/OfficeViewer.vue'
@@ -473,6 +474,28 @@ export default {
     },
     showUpdateDialog() {
       this.updateDialogVisible = true;
+    },
+    async handleDelete() {
+      try {
+        await this.$confirm('确定要删除该文件吗？删除后将无法在系统中查看。', '警告', {
+          confirmButtonText: '确定删除',
+          cancelButtonText: '取消',
+          type: 'error',
+          confirmButtonClass: 'el-button--danger'
+        });
+        
+        await deleteAsset(this.fileData.id);
+        this.$message.success('文件已成功删除');
+        
+        // 通知父组件刷新列表并关闭当前预览
+        this.$emit('delete-success', this.fileData.id);
+        this.closePreview();
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('Delete failed:', error);
+          this.$message.error('删除操作失败');
+        }
+      }
     },
     handleUpdateSuccess(res) {
       // 刷新当前预览

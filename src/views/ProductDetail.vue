@@ -196,7 +196,8 @@
       :file-data="currentPreviewFile"
       :tree-data="assetTreeData"
       :can-update="hasEditPermission"
-      @node-click="handlePreviewNodeClick">
+      @node-click="handlePreviewNodeClick"
+      @delete-success="refreshRoot">
     </super-preview>
 
     <!-- 搜索结果弹窗 -->
