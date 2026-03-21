@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function getAssetTree(params) {
   return request({
-    url: '/api/assets/tree',
+    url: '/assets/tree',
     method: 'get',
     params
   })
@@ -10,7 +10,7 @@ export function getAssetTree(params) {
 
 export function createFolder(data) {
   return request({
-    url: '/api/assets/folder',
+    url: '/assets/folder',
     method: 'post',
     data
   })
@@ -18,7 +18,7 @@ export function createFolder(data) {
 
 export function renameAsset(id, newName) {
   return request({
-    url: `/api/assets/${id}/rename`,
+    url: `/assets/${id}/rename`,
     method: 'put',
     data: { new_name: newName }
   })
@@ -26,7 +26,7 @@ export function renameAsset(id, newName) {
 
 export function moveAsset(id, targetParentId) {
   return request({
-    url: `/api/assets/${id}/move`,
+    url: `/assets/${id}/move`,
     method: 'put',
     data: { target_parent_id: targetParentId }
   })
@@ -34,21 +34,21 @@ export function moveAsset(id, targetParentId) {
 
 export function deleteAsset(id) {
   return request({
-    url: `/api/assets/${id}`,
+    url: `/assets/${id}`,
     method: 'delete'
   })
 }
 
 export function acquireLock(id) {
   return request({
-    url: `/api/assets/${id}/lock`,
+    url: `/assets/${id}/lock`,
     method: 'post'
   })
 }
 
 export function keepAliveLock(id, lockId) {
   return request({
-    url: `/api/assets/${id}/lock/keepalive`,
+    url: `/assets/${id}/lock/keepalive`,
     method: 'put',
     data: { lock_id: lockId }
   })
@@ -56,7 +56,7 @@ export function keepAliveLock(id, lockId) {
 
 export function unlockAsset(id, lockId) {
   return request({
-    url: `/api/assets/${id}/unlock`,
+    url: `/assets/${id}/unlock`,
     method: 'post',
     data: { lock_id: lockId }
   })
@@ -64,7 +64,7 @@ export function unlockAsset(id, lockId) {
 
 export function uploadFile(data) {
   return request({
-    url: '/api/assets/upload',
+    url: '/assets/upload',
     method: 'post',
     data,
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -73,7 +73,7 @@ export function uploadFile(data) {
 
 export function updateAsset(id, data) {
   return request({
-    url: `/api/assets/${id}/update`,
+    url: `/assets/${id}/update`,
     method: 'post',
     data,
     headers: { 'Content-Type': 'multipart/form-data' }
@@ -82,7 +82,7 @@ export function updateAsset(id, data) {
 
 export function downloadAssets(data) {
   return request({
-    url: '/api/assets/download',
+    url: '/assets/download',
     method: 'post',
     data,
     responseType: 'blob'
@@ -91,7 +91,7 @@ export function downloadAssets(data) {
 
 export function getAssetDetails(id, params) {
   return request({
-    url: `/api/assets/${id}/details`,
+    url: `/assets/${id}/details`,
     method: 'get',
     params
   })
@@ -99,7 +99,7 @@ export function getAssetDetails(id, params) {
 
 export function getBatchDetails(data) {
   return request({
-    url: '/api/assets/batch-details',
+    url: '/assets/batch-details',
     method: 'post',
     data
   })
@@ -108,7 +108,7 @@ export function getBatchDetails(data) {
 // 新增 API
 export function recordReadState(data) {
   return request({
-    url: '/api/assets/record-read-state',
+    url: '/assets/record-read-state',
     method: 'post',
     data
   })
@@ -116,7 +116,7 @@ export function recordReadState(data) {
 
 export function getMyStarredFiles(params) {
   return request({
-    url: '/api/assets/my-stars',
+    url: '/assets/my-stars',
     method: 'get',
     params
   })
@@ -124,7 +124,7 @@ export function getMyStarredFiles(params) {
 
 export function starFile(fileId, params) {
   return request({
-    url: `/api/assets/star/${fileId}`,
+    url: `/assets/star/${fileId}`,
     method: 'post',
     params
   })
@@ -132,7 +132,7 @@ export function starFile(fileId, params) {
 
 export function unstarFile(fileId, params) {
   return request({
-    url: `/api/assets/star/${fileId}`,
+    url: `/assets/star/${fileId}`,
     method: 'delete',
     params
   })
@@ -140,7 +140,7 @@ export function unstarFile(fileId, params) {
 
 export function pinFile(fileId, params) {
   return request({
-    url: `/api/assets/star/${fileId}/pin`,
+    url: `/assets/star/${fileId}/pin`,
     method: 'post',
     params
   })
@@ -148,7 +148,7 @@ export function pinFile(fileId, params) {
 
 export function getLatestUpdates(params) {
   return request({
-    url: '/api/assets/latest-updates',
+    url: '/assets/latest-updates',
     method: 'get',
     params
   })
@@ -156,14 +156,14 @@ export function getLatestUpdates(params) {
 
 export function getCuratedAssets(productId) {
   return request({
-    url: `/api/assets/curated/${productId}`,
+    url: `/assets/curated/${productId}`,
     method: 'get'
   })
 }
 
 export function getProductUseTop(productId, params) {
   return request({
-    url: `/api/assets/product-use-top/${productId}`,
+    url: `/assets/product-use-top/${productId}`,
     method: 'get',
     params
   })
@@ -171,7 +171,7 @@ export function getProductUseTop(productId, params) {
 
 export function getRecentAccessedFiles(params) {
   return request({
-    url: '/api/assets/recent-access',
+    url: '/assets/recent-access',
     method: 'get',
     params
   })
@@ -179,21 +179,21 @@ export function getRecentAccessedFiles(params) {
 
 export function getProductCuratedAssets(productId) {
   return request({
-    url: `/api/assets/product/${productId}/curated-assets`,
+    url: `/assets/product/${productId}/curated-assets`,
     method: 'get'
   })
 }
 
 export function getProductUseRanking(productId) {
   return request({
-    url: `/api/assets/product/${productId}/use-ranking`,
+    url: `/assets/product/${productId}/use-ranking`,
     method: 'get'
   })
 }
 
 export function toggleCuratedStatus(data) {
   return request({
-    url: '/api/assets/curated',
+    url: '/assets/curated',
     method: 'post',
     data
   })
@@ -201,7 +201,7 @@ export function toggleCuratedStatus(data) {
 
 export function getCuratedStatus(params) {
   return request({
-    url: '/api/assets/curated/status',
+    url: '/assets/curated/status',
     method: 'get',
     params
   })
@@ -209,42 +209,42 @@ export function getCuratedStatus(params) {
 
 export function getRecycleBin() {
   return request({
-    url: '/api/assets/recycle-bin',
+    url: '/assets/recycle-bin',
     method: 'get'
   })
 }
 
 export function restoreAsset(id) {
   return request({
-    url: `/api/assets/${id}/restore`,
+    url: `/assets/${id}/restore`,
     method: 'post'
   })
 }
 
 export function permanentDeleteAsset(id) {
   return request({
-    url: `/api/assets/${id}/permanent`,
+    url: `/assets/${id}/permanent`,
     method: 'delete'
   })
 }
 
 export function restoreAllAssets() {
   return request({
-    url: '/api/assets/restore-all',
+    url: '/assets/restore-all',
     method: 'post'
   })
 }
 
 export function permanentDeleteAllAssets() {
   return request({
-    url: '/api/assets/permanent-all',
+    url: '/assets/permanent-all',
     method: 'delete'
   })
 }
 
 export function getBatchProgress(taskId) {
   return request({
-    url: `/api/assets/batch-progress/${taskId}`,
+    url: `/assets/batch-progress/${taskId}`,
     method: 'get'
   })
 }

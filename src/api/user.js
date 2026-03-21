@@ -2,7 +2,7 @@ import request from '@/utils/request'
 
 export function login(data) {
   return request({
-    url: '/api/login',
+    url: '/login', // Removed /api
     method: 'post',
     data
   })
@@ -23,7 +23,15 @@ export function logout() {
 
 export function getUserList() {
   return request({
-    url: '/api/users/list',
+    url: '/users/list', // Removed /api
     method: 'get'
+  })
+}
+
+export function changePassword(data) {
+  return request({
+    url: '/user/change-password', // Removed /api
+    method: 'post',
+    data
   })
 }

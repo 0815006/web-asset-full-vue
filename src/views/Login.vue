@@ -35,7 +35,7 @@
 </template>
 
 <script>
-import request from '@/utils/request'
+import { login } from '@/api/user'
 
 export default {
   name: 'Login',
@@ -57,11 +57,8 @@ export default {
         if (valid) {
           this.loading = true
           try {
-            const res = await request({
-              url: '/api/login',
-              method: 'post',
-              data: this.loginForm
-            })
+            const res = await login(this.loginForm)
+
             
             // 存储登录信息
             localStorage.setItem('token', res.token)

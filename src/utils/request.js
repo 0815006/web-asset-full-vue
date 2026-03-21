@@ -3,7 +3,7 @@ import { Message } from 'element-ui'
 
 // 创建 axios 实例
 const service = axios.create({
-  baseURL: '', // url = base url + request url
+  baseURL: '/api', // url = base url + request url
   timeout: 30000 // request timeout increased to 30s
 })
 

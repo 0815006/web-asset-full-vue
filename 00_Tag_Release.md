@@ -6,6 +6,8 @@
 
 *   **前端框架初始化**：基于 Vue 2 和 Element UI 构建了前端项目，并使用 Vue CLI 进行开发。
 *   **用户认证与页面路由**：实现了用户登录 (`Login.vue`)、全局路由管理 (`src/router/index.js`) 和导航功能。
+*   **修改密码功能**：新增了修改密码对话框 (`ChangePasswordDialog.vue`)，支持用户自主更新密码。
+*   **强制重新登录机制**：在成功修改密码后，系统会自动清除本地会话并跳转至登录页，确保账户安全。
 *   **API 接口集成**：通过 Axios (`src/utils/request.js`) 封装了后端 API 请求，并在 `src/api/` 目录下集中管理接口调用。
 *   **首页与多标签页**：设计了功能丰富的首页 (`Home.vue`)，包含业务概览 (`BusinessLandscapeTab.vue`)、关系图谱 (`RelationshipGraphTab.vue`)、搜索 (`SearchFirstTab.vue`) 和任务驱动 (`TaskDrivenTab.vue`) 等多个标签页。
 *   **资产展示与管理**：开发了资产项 (`AssetItem.vue`)、精选资产列表 (`ProductCuratedAssetList.vue`) 和文件更新对话框 (`UpdateFileDialog.vue`) 等组件。
@@ -16,10 +18,13 @@
 
 ### Bug 修复
 
-*   [初始版本未发现具体 Bug，此部分留待后续更新]
+*   **修复 API 路径冗余**：解决了由于 `baseURL` 与 API 路径重复导致的双重 `/api/` 请求问题。
+*   **修复修改密码提示逻辑**：修正了 `ChangePasswordDialog.vue` 中对响应码的错误判断，确保成功提示能正常弹出。
+*   **修复 Vue 警告**：解决了 `MainHeader.vue` 中 `localActiveTab` 属性重复定义的警告。
 
 ### 改进
 
+*   **规范化 API 调用**：统一了所有 API 服务文件的路径定义，移除了冗余前缀，增强了代码的可维护性。
 *   **统一请求拦截**：在 `src/utils/request.js` 中配置了 Axios 请求和响应拦截器，统一处理错误提示和数据格式。
 *   **全局状态管理**：引入 Vuex (`src/store/index.js`) 进行应用级状态管理。
 *   **组件化开发**：大量可复用组件的开发，提高了代码的模块化和可维护性。

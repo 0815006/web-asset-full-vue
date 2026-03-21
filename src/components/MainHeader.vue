@@ -1,44 +1,59 @@
 <template>
-  <div class="top-nav-bar">
-    <div class="nav-container">
-      <div class="logo-section" @click="goToHome('search-first')">
-        <i class="el-icon-s-finance"></i>
-        <span class="logo-text">测试资产库</span>
-      </div>
-      
-      <div class="tabs-wrapper">
-        <el-tabs v-model="localActiveTab" class="main-tabs" @tab-click="handleTabClick">
-          <el-tab-pane label="智能探索" name="search-first"></el-tab-pane>
-          <el-tab-pane label="业务版图" name="business-landscape"></el-tab-pane>
-          <el-tab-pane label="资产拓扑" name="relationship-graph"></el-tab-pane>
-          <el-tab-pane label="测试工作区" name="task-driven"></el-tab-pane>
-        </el-tabs>
-      </div>
-      
-      <div class="user-info-wrapper">
-        <el-dropdown @command="handleCommand" trigger="click">
-          <div class="user-info-content">
-            <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
-            <span class="username">{{ realName }}</span>
-            <i class="el-icon-arrow-down el-icon--right"></i>
-          </div>
-          <el-dropdown-menu slot="dropdown">
-            <el-dropdown-item command="logout" icon="el-icon-switch-button">退出登录</el-dropdown-item>
-          </el-dropdown-menu>
-        </el-dropdown>
+  <div>
+    <div class="top-nav-bar">
+      <div class="nav-container">
+        <div class="logo-section" @click="goToHome('search-first')">
+          <i class="el-icon-s-finance"></i>
+          <span class="logo-text">测试资产库</span>
+        </div>
+        
+        <div class="tabs-wrapper">
+          <el-tabs v-model="localActiveTab" class="main-tabs" @tab-click="handleTabClick">
+            <el-tab-pane label="智能探索" name="search-first"></el-tab-pane>
+            <el-tab-pane label="业务版图" name="business-landscape"></el-tab-pane>
+            <el-tab-pane label="资产拓扑" name="relationship-graph"></el-tab-pane>
+            <el-tab-pane label="测试工作区" name="task-driven"></el-tab-pane>
+          </el-tabs>
+        </div>
+        
+        <div class="user-info-wrapper">
+          <el-dropdown @command="handleCommand" trigger="click">
+            <div class="user-info-content">
+              <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
+              <span class="username">{{ realName }}</span>
+              <i class="el-icon-arrow-down el-icon--right"></i>
+            </div>
+            <el-dropdown-menu slot="dropdown">
+              <el-dropdown-item command="changePassword" icon="el-icon-lock">修改密码</el-dropdown-item>
+              <el-dropdown-item command="logout" icon="el-icon-switch-button">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </el-dropdown>
+        </div>
       </div>
     </div>
+    <change-password-dialog :visible.sync="showChangePasswordDialog"></change-password-dialog>
   </div>
 </template>
 
 <script>
+import ChangePasswordDialog from './ChangePasswordDialog.vue';
+
 export default {
   name: 'MainHeader',
+  components: {
+    ChangePasswordDialog
+  },
   props: {
     activeTab: {
       type: String,
       default: 'search-first'
     }
+  },
+  data() {
+    return {
+      showChangePasswordDialog: false,
+
+    };
   },
   computed: {
     realName() {
@@ -58,6 +73,8 @@ export default {
     handleCommand(command) {
       if (command === 'logout') {
         this.handleLogout();
+      } else if (command === 'changePassword') {
+        this.showChangePasswordDialog = true;
       }
     },
     handleLogout() {
