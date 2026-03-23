@@ -1,5 +1,5 @@
 // 设置 OnlyOffice API 默认地址
-process.env.VUE_APP_ONLYOFFICE_API = process.env.VUE_APP_ONLYOFFICE_API || 'http://localhost:9000/web-apps/apps/api/documents/api.js';
+process.env.VUE_APP_ONLYOFFICE_API = process.env.VUE_APP_ONLYOFFICE_API || 'http://localhost:9010/web-apps/apps/api/documents/api.js';
 
 const { defineConfig } = require('@vue/cli-service')
 
