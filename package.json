@@ -11,6 +11,7 @@
     "@hyjiacan/xmind-viewer": "^2.0.2",
     "axios": "^1.6.8",
     "core-js": "^3.48.0",
+    "crypto-js": "^4.2.0",
     "element-ui": "^2.15.14",
     "highlight.js": "^11.11.1",
     "marked": "^4.3.0",

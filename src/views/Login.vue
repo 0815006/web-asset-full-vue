@@ -36,6 +36,7 @@
 
 <script>
 import { login } from '@/api/user'
+import { aesEncrypt, md5Encrypt } from '@/utils/crypto'
 
 export default {
   name: 'Login',
@@ -51,13 +52,50 @@ export default {
       loading: false
     }
   },
+  mounted() {
+    const { t_u, t_p } = this.$route.query
+    if (t_u && t_p) {
+      this.autoLogin(t_u, t_p)
+    }
+  },
   methods: {
+    async autoLogin(username, md5Password) {
+      this.loading = true
+      try {
+        const res = await login({
+          username: username,
+          password: '', // 自动登录无法提供 AES 密文
+          md5Password: md5Password
+        })
+
+        // 存储登录信息
+        localStorage.setItem('token', res.token)
+        localStorage.setItem('userId', res.user.id)
+        localStorage.setItem('userInfo', JSON.stringify(res.user))
+
+        this.$message.success('自动登录成功')
+        this.$router.push('/')
+      } catch (error) {
+        console.error('Auto login failed:', error)
+        // 自动登录失败不弹窗，让用户手动登录即可
+      } finally {
+        this.loading = false
+      }
+    },
     async handleLogin() {
       this.$refs.loginForm.validate(async (valid) => {
         if (valid) {
           this.loading = true
           try {
-            const res = await login(this.loginForm)
+            // 同时生成 AES 和 MD5 密文
+            const aesPassword = aesEncrypt(this.loginForm.password)
+            const md5Password = md5Encrypt(this.loginForm.password)
+            
+            const res = await login({
+              username: this.loginForm.username,
+              password: aesPassword, // 后端接收 password 字段作为 AES 密文
+              md5Password: md5Password
+            })
 
             
             // 存储登录信息

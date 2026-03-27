@@ -24,7 +24,7 @@
               <i class="el-icon-arrow-down el-icon--right"></i>
             </div>
             <el-dropdown-menu slot="dropdown">
-              <el-dropdown-item command="changePassword" icon="el-icon-lock">修改密码</el-dropdown-item>
+              <!-- <el-dropdown-item command="changePassword" icon="el-icon-lock">修改密码</el-dropdown-item> -->
               <el-dropdown-item command="logout" icon="el-icon-switch-button">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </el-dropdown>
