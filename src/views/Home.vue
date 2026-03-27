@@ -163,18 +163,57 @@ export default {
       return this.products;
     },
     groupedByTeam() {
-      return this.filteredProducts.reduce((acc, product) => {
-        if (!acc[product.teamName]) acc[product.teamName] = [];
-        acc[product.teamName].push(product);
+      const groups = this.filteredProducts.reduce((acc, product) => {
+        const teamName = product.teamName || '未分类团队';
+        if (!acc[teamName]) acc[teamName] = [];
+        acc[teamName].push(product);
         return acc;
       }, {});
+      
+      // 定义固定顺序权重（按关键字命中）
+      const teamOrder = [
+        { key: '一', weight: 1 },
+        { key: '二', weight: 2 },
+        { key: '三', weight: 3 },
+        { key: '四', weight: 4 },
+        { key: '五', weight: 5 },
+        { key: '六', weight: 6 },
+        { key: '性能', weight: 999 }
+      ];
+
+      // 排序逻辑：固定顺序优先，其余按拼音
+      const sortedGroups = {};
+      Object.keys(groups).sort((a, b) => {
+        const getWeight = (name) => {
+          const match = teamOrder.find(item => name.includes(item.key));
+          return match ? match.weight : 500;
+        };
+
+        const weightA = getWeight(a);
+        const weightB = getWeight(b);
+        if (weightA !== weightB) {
+          return weightA - weightB;
+        }
+        return a.localeCompare(b, 'zh-CN');
+      }).forEach(key => {
+        sortedGroups[key] = groups[key];
+      });
+      return sortedGroups;
     },
     groupedByDomain() {
-      return this.filteredProducts.reduce((acc, product) => {
-        if (!acc[product.domainName]) acc[product.domainName] = [];
-        acc[product.domainName].push(product);
+      const groups = this.filteredProducts.reduce((acc, product) => {
+        const domainName = product.domainName || '未分类领域';
+        if (!acc[domainName]) acc[domainName] = [];
+        acc[domainName].push(product);
         return acc;
       }, {});
+
+      // 按领域名称拼音排序
+      const sortedGroups = {};
+      Object.keys(groups).sort((a, b) => a.localeCompare(b, 'zh-CN')).forEach(key => {
+        sortedGroups[key] = groups[key];
+      });
+      return sortedGroups;
     },
     canUpdatePreviewedFile() {
       if (!this.currentUser || !this.currentUser.roleType) {
@@ -193,7 +232,7 @@ export default {
       if (file.productId && file.productId !== 0) {
         const product = this.products.find(p => p.id === file.productId);
         if (product) {
-          const isProductOwner = this.currentUser.userName === product.owner;
+          const isProductOwner = this.currentUser.realName === product.owner;
           return isProductOwner;
         }
       }

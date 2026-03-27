@@ -292,8 +292,8 @@ export default {
   computed: {
     hasEditPermission() {
       const isSuperAdmin = this.currentUser && this.currentUser.roleType === 1;
-      // Assuming the user object from localStorage has a 'userName' property that matches product.owner
-      const isProductOwner = this.currentUser && this.product.owner && this.currentUser.userName === this.product.owner;
+      // Assuming the user object from localStorage has a 'realName' property that matches product.owner
+      const isProductOwner = this.currentUser && this.product.owner && this.currentUser.realName === this.product.owner;
       return isSuperAdmin || isProductOwner;
     }
   },

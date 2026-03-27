@@ -41,8 +41,13 @@ service.interceptors.response.use(
    * You can also judge the status by HTTP Status Code
    */
   response => {
-    // 如果是 Blob 或 ArrayBuffer 类型，直接返回
-    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
+    // 如果是 HEAD 请求，直接返回响应（HEAD 请求没有响应体）
+    if (response.config.method === 'head') {
+      return response
+    }
+
+    // 如果是 Blob、ArrayBuffer 或 Text 类型，直接返回
+    if (['blob', 'arraybuffer', 'text'].includes(response.config.responseType)) {
       return response.data
     }
 
@@ -50,11 +55,13 @@ service.interceptors.response.use(
 
     // if the custom code is not 200, it is judged as an error.
     if (res.code !== 200) {
-      Message({
-        message: res.message || 'Error',
-        type: 'error',
-        duration: 5 * 1000
-      })
+      if (!response.config.silent) {
+        Message({
+          message: res.message || 'Error',
+          type: 'error',
+          duration: 5 * 1000
+        })
+      }
       return Promise.reject(new Error(res.message || 'Error'))
     } else {
       return res.data
@@ -68,11 +75,13 @@ service.interceptors.response.use(
       localStorage.removeItem('userInfo')
       window.location.href = '/login'
     }
-    Message({
-      message: error.message,
-      type: 'error',
-      duration: 5 * 1000
-    })
+    if (!error.config || !error.config.silent) {
+      Message({
+        message: error.message,
+        type: 'error',
+        duration: 5 * 1000
+      })
+    }
     return Promise.reject(error)
   }
 )

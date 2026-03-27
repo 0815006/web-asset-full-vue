@@ -248,3 +248,71 @@ export function getBatchProgress(taskId) {
     method: 'get'
   })
 }
+
+export function getStoragePath(params) {
+  return request({
+    url: '/assets/storage-path',
+    method: 'get',
+    params
+  })
+}
+
+export function createRootDir(data) {
+  return request({
+    url: '/assets/create-root-dir',
+    method: 'post',
+    data
+  })
+}
+
+export function healthCheck(params) {
+  return request({
+    url: '/assets/health-check',
+    method: 'get',
+    params
+  })
+}
+
+export function syncExtra(data) {
+  return request({
+    url: '/assets/sync-extra',
+    method: 'post',
+    data
+  })
+}
+
+export function getSyncProgress(params) {
+  return request({
+    url: '/assets/sync-progress',
+    method: 'get',
+    params
+  })
+}
+
+export function checkAssetExistence(id, params) {
+  return request({
+    url: `/assets/${id}/view`,
+    method: 'head',
+    params,
+    silent: true
+  })
+}
+
+export function getAssetPreviewData(id, params, onDownloadProgress) {
+  return request({
+    url: `/assets/${id}/view`,
+    method: 'get',
+    params,
+    responseType: 'arraybuffer',
+    onDownloadProgress
+  })
+}
+
+export function getAssetTextContent(id, params) {
+  return request({
+    url: `/assets/${id}/view`,
+    method: 'get',
+    params,
+    responseType: 'text'
+  })
+}

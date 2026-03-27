@@ -130,7 +130,7 @@
 </template>
 
 <script>
-import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile, toggleCuratedStatus, getCuratedStatus, deleteAsset } from '@/api/asset-node'
+import { getAssetTree, downloadAssets, recordReadState, starFile, unstarFile, toggleCuratedStatus, getCuratedStatus, deleteAsset, checkAssetExistence } from '@/api/asset-node'
 import PdfViewer from './viewers/PdfViewer.vue'
 import ImageViewer from './viewers/ImageViewer.vue'
 import OfficeViewer from './viewers/OfficeViewer.vue'
@@ -222,7 +222,7 @@ export default {
     isOffice() {
       if (!this.fileData) return false;
       const ext = String(this.fileData.ext || '').toLowerCase();
-      return ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt'].includes(ext);
+      return ['docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf'].includes(ext);
     },
     isXmind() {
       if (!this.fileData) return false;
@@ -236,18 +236,18 @@ export default {
     },
     previewUrl() {
       if (!this.fileData) return '';
-      const userId = this.currentUser.id;
+      const userId = this.currentUser.id || localStorage.getItem('userId') || 2;
       const token = localStorage.getItem('token');
       const tokenParam = token ? `&token=${token}` : '';
+      // 使用相对路径，依赖 vue.config.js 的代理配置
       return `/api/assets/${this.fileData.id}/view?userId=${userId}${tokenParam}`;
     },
     absoluteFileUrl() {
       if (!this.fileData) return '';
       // OnlyOffice 需要绝对路径。
-      // 假设后端运行在宿主机的 8081 端口。
-      // 在 Docker 容器内访问宿主机可以使用 host.docker.internal (Windows/Mac)
-      const baseUrl = process.env.VUE_APP_BACKEND_API_BASE || 'http://host.docker.internal:8081';
-      const userId = this.currentUser.id;
+      // 优先使用环境变量，如果没有则根据当前页面地址推导（注意：OnlyOffice 在 Docker 中运行，通常需要 host.docker.internal）
+      const baseUrl = process.env.VUE_APP_BACKEND_API_BASE || (window.location.protocol + '//' + window.location.hostname + ':8081');
+      const userId = this.currentUser.id || localStorage.getItem('userId') || 2;
       const token = localStorage.getItem('token');
       const tokenParam = token ? `&token=${token}` : '';
       return `${baseUrl}/api/assets/${this.fileData.id}/view?userId=${userId}${tokenParam}`;
@@ -312,10 +312,10 @@ export default {
       if (this.fileData.id !== currentId) return;
 
       if (!this.fileMissing) {
-        // 5. 确定新的显示类型
-        if (this.isPdf) this.activeType = 'pdf';
+        // 5. 确定新的显示类型 (优先使用 Office 模式，以支持 OnlyOffice 预览 PDF)
+        if (this.isOffice) this.activeType = 'office';
+        else if (this.isPdf) this.activeType = 'pdf';
         else if (this.isImage) this.activeType = 'image';
-        else if (this.isOffice) this.activeType = 'office';
         else if (this.isXmind) this.activeType = 'xmind';
         else if (this.isText) this.activeType = 'text';
         else this.activeType = 'unsupported';
@@ -379,16 +379,11 @@ export default {
     },
     async checkFileExistence() {
       try {
-        const token = localStorage.getItem('token');
-        const headers = {};
-        if (token) {
-          headers['Authorization'] = 'Bearer ' + token;
-        }
-        const response = await fetch(this.previewUrl, { method: 'HEAD', headers });
-        if (response.status === 404) {
+        await checkAssetExistence(this.fileData.id, { userId: this.currentUser.id });
+      } catch (error) {
+        if (error.response && error.response.status === 404) {
           this.fileMissing = true;
         }
-      } catch (error) {
         console.error('Check file existence failed', error);
       }
     },
@@ -459,13 +454,17 @@ export default {
       if (!this.fileData) return;
       
       // 直接通过浏览器下载单个文件，不打成压缩包
-      const userId = this.currentUser.id;
+      const userId = this.currentUser.id || localStorage.getItem('userId') || 2;
       const token = localStorage.getItem('token');
       const tokenParam = token ? `&token=${token}` : '';
+      
+      // 使用相对路径下载，由开发服务器代理转发。
+      // 之前尝试使用绝对路径导致了 host.docker.internal 无法解析的问题。
       const downloadUrl = `/api/assets/${this.fileData.id}/view?download=true&userId=${userId}${tokenParam}`;
+      
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.setAttribute('download', this.fileData.label);
+      link.setAttribute('download', this.fileData.label || this.fileData.fileName);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

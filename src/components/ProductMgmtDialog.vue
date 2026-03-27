@@ -18,7 +18,7 @@
           <el-option
             v-for="item in products"
             :key="item.id"
-            :label="item.productName"
+            :label="item.productCode ? `${item.productName} (${item.productCode})` : item.productName"
             :value="item.id">
           </el-option>
         </el-select>
@@ -37,7 +37,6 @@
 
       <div v-if="selectedProduct" class="product-actions">
         <el-button size="medium" type="primary" plain icon="el-icon-edit" @click="showEditDialog(selectedProduct)">编辑产品信息</el-button>
-        <el-button size="medium" type="success" plain icon="el-icon-folder-add" @click="initFolders(selectedProduct)" :loading="selectedProduct.initLoading">一键铺底目录</el-button>
       </div>
     </div>
 
@@ -76,7 +75,7 @@
 </template>
 
 <script>
-import { getProductList, createProduct, updateProduct, initProductFolders } from "@/api/product";
+import { getProductList, createProduct, updateProduct } from "@/api/product";
 import { getUserList } from "@/api/user";
 
 export default {
@@ -208,21 +207,6 @@ export default {
           }
         }
       });
-    },
-    async initFolders(product) {
-      product.initLoading = true;
-      // 强制更新视图以显示 loading 状态
-      this.$forceUpdate();
-      try {
-        const res = await initProductFolders(product.id);
-        this.$message.success(res);
-      } catch (error) {
-        console.error("Failed to init folders:", error);
-        this.$message.error("一键铺底目录失败");
-      } finally {
-        product.initLoading = false;
-        this.$forceUpdate();
-      }
     },
   },
 };

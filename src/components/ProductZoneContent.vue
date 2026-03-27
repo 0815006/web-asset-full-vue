@@ -19,14 +19,14 @@
     <div v-if="viewMode === 'tile'" class="product-grid">
       <div v-for="product in filteredProducts" :key="product.id" class="product-card" @click="$emit('go-to-product', product.id)">
         <div class="product-card-header">
-          <span class="product-name">{{ product.productName }}</span>
+          <span class="product-name">{{ product.productCode || '无简称' }}</span>
           <i 
             :class="product.isFavorited ? 'el-icon-star-on favorite-icon active' : 'el-icon-star-off favorite-icon'"
             @click.stop="$emit('toggle-favorite', product)">
           </i>
         </div>
         <div class="product-card-body">
-          <p><strong>英文简称:</strong> {{ product.productCode || '-' }}</p>
+          <p><strong>产品名称:</strong> {{ product.productName }}</p>
           <p><strong>团队:</strong> {{ product.teamName }}</p>
           <p><strong>领域:</strong> {{ product.domainName }}</p>
           <p><strong>资产数:</strong> {{ product.assetCount }}</p>

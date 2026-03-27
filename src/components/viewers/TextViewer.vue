@@ -9,6 +9,7 @@
 </template>
 
 <script>
+import { getAssetTextContent } from '@/api/asset-node'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css' // 引用 github 风格的代码高亮样式
@@ -71,17 +72,11 @@ export default {
       this.loading = true;
       this.textContent = '';
       try {
-        const token = localStorage.getItem('token');
-        const headers = {};
-        if (token) {
-          headers['Authorization'] = 'Bearer ' + token;
-        }
-        const response = await fetch(this.previewUrl, { headers });
-        if (response.ok) {
-          this.textContent = await response.text();
-        } else {
-          this.textContent = '获取文件内容失败';
-        }
+        const response = await getAssetTextContent(
+          this.fileData.id,
+          { userId: localStorage.getItem('userId') }
+        );
+        this.textContent = response;
       } catch (error) {
         console.error('Fetch text failed', error);
         this.textContent = '获取文件内容出错';

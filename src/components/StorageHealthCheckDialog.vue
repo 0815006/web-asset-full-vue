@@ -9,44 +9,66 @@
     
     <div class="check-controls">
       <el-form :inline="true" :model="form" size="small" class="controls-form">
-        <el-form-item label="检查范围">
-          <el-select v-model="form.type" placeholder="请选择专区" @change="handleTypeChange" style="width: 180px;">
-            <el-option label="测试技术与工艺专区" value="tech_zone"></el-option>
-            <el-option label="管理专区" value="mgmt_zone"></el-option>
-            <el-option label="产品专区" value="product_zone"></el-option>
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item v-if="form.type === 'product_zone'" label="选择产品">
-          <el-select v-model="form.productId" placeholder="请选择产品" filterable style="width: 200px;">
-            <el-option
-              v-for="item in products"
-              :key="item.id"
-              :label="item.productName"
-              :value="item.id">
-            </el-option>
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item>
-          <el-button type="primary" @click="startCheck" :loading="checking">开始检查</el-button>
-        </el-form-item>
+        <div class="filter-line">
+          <el-form-item label="检查范围">
+            <el-select v-model="form.type" placeholder="请选择专区" @change="handleTypeChange" style="width: 180px;">
+              <el-option label="测试技术与工艺专区" value="tech_zone"></el-option>
+              <el-option label="管理专区" value="mgmt_zone"></el-option>
+              <el-option label="产品专区" value="product_zone"></el-option>
+            </el-select>
+          </el-form-item>
+          
+          <el-form-item v-if="form.type === 'product_zone'" label="选择产品">
+            <el-select v-model="form.productId" placeholder="请选择产品" filterable style="width: 200px;">
+              <el-option
+                v-for="item in products"
+                :key="item.id"
+                :label="item.productName"
+                :value="item.id">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          
+          <el-form-item>
+            <el-button type="primary" @click="startCheck" :loading="checking">开始检查</el-button>
+          </el-form-item>
+        </div>
 
-        <el-form-item v-if="form.type" class="path-item">
-          <div class="path-container">
-            <span class="path-label">存储根目录：</span>
-            <el-tag size="medium" class="path-tag">
-              <i class="el-icon-folder"></i>
-              {{ currentPath || '正在获取...' }}
-            </el-tag>
-            <el-button 
-              type="success" 
-              size="mini" 
-              icon="el-icon-folder-add" 
-              class="create-btn"
-              @click="handleCreateRootDir">建根目录</el-button>
-          </div>
-        </el-form-item>
+        <div v-if="form.type" class="path-line">
+          <el-form-item class="path-item">
+            <div class="path-container">
+              <span class="path-label">存储根目录：</span>
+              <el-tag size="medium" class="path-tag">
+                <i class="el-icon-folder"></i>
+                {{ currentPath || '正在获取...' }}
+              </el-tag>
+              <el-button 
+                type="success" 
+                size="mini" 
+                icon="el-icon-folder-add" 
+                class="create-btn"
+                @click="handleCreateRootDir">建根目录</el-button>
+              <el-button 
+                v-if="form.type === 'product_zone'"
+                type="warning" 
+                size="mini" 
+                icon="el-icon-s-grid" 
+                class="init-btn"
+                style="margin-left: 10px;"
+                :loading="initLoading"
+                @click="handleInitFolders">铺底基础五目录</el-button>
+              <el-button 
+                v-if="form.type === 'tech_zone' || form.type === 'mgmt_zone'"
+                type="warning" 
+                size="mini" 
+                icon="el-icon-s-grid" 
+                class="init-btn"
+                style="margin-left: 10px;"
+                :loading="initLoading"
+                @click="handleInitZoneFolders">铺底基础目录</el-button>
+            </div>
+          </el-form-item>
+        </div>
       </el-form>
     </div>
 
@@ -110,8 +132,14 @@
 </template>
 
 <script>
-import request from '@/utils/request'
-import { getProductList } from '@/api/product'
+import { getProductList, initProductFolders, initZoneFolders } from '@/api/product'
+import { 
+  getStoragePath, 
+  createRootDir, 
+  healthCheck, 
+  syncExtra, 
+  getSyncProgress 
+} from '@/api/asset-node'
 
 export default {
   name: 'StorageHealthCheckDialog',
@@ -131,6 +159,7 @@ export default {
       products: [],
       checking: false,
       syncing: false,
+      initLoading: false,
       syncTimer: null,
       syncProgress: {
         totalFiles: 0,
@@ -185,11 +214,9 @@ export default {
         return;
       }
       try {
-        const data = await request.get('/api/assets/storage-path', {
-          params: {
-            type: this.form.type,
-            product_id: this.form.productId
-          }
+        const data = await getStoragePath({
+          type: this.form.type,
+          product_id: this.form.productId
         });
         this.currentPath = data;
       } catch (e) {
@@ -202,7 +229,7 @@ export default {
         return;
       }
       try {
-        await request.post('/api/assets/create-root-dir', {
+        await createRootDir({
           type: this.form.type,
           product_id: this.form.productId
         });
@@ -210,6 +237,38 @@ export default {
       } catch (e) {
         // request.js 已经处理了错误弹窗（包括“已经存在”的提示）
         console.error(e);
+      }
+    },
+    async handleInitFolders() {
+      if (!this.form.productId) {
+        this.$message.warning('请先选择产品');
+        return;
+      }
+      this.initLoading = true;
+      try {
+        const res = await initProductFolders(this.form.productId);
+        this.$message.success(res);
+        // 初始化目录后，自动触发一次检查以刷新视图
+        this.startCheck();
+      } catch (error) {
+        console.error("Failed to init folders:", error);
+        this.$message.error("铺底基础五目录失败");
+      } finally {
+        this.initLoading = false;
+      }
+    },
+    async handleInitZoneFolders() {
+      this.initLoading = true;
+      try {
+        const res = await initZoneFolders(this.form.type);
+        this.$message.success(res);
+        // 初始化目录后，自动触发一次检查以刷新视图
+        this.startCheck();
+      } catch (error) {
+        console.error("Failed to init zone folders:", error);
+        this.$message.error("铺底基础目录失败");
+      } finally {
+        this.initLoading = false;
       }
     },
     async fetchProducts() {
@@ -226,18 +285,16 @@ export default {
     },
     async startCheck() {
       if (this.form.type === 'product_zone' && !this.form.productId) {
-        this.$message.warning('请选择具体产品');
+        this.$message.warning('选择具体产品');
         return;
       }
       
       this.checking = true;
       this.checkResult = null;
       try {
-        const data = await request.get('/api/assets/health-check', {
-          params: {
-            type: this.form.type,
-            product_id: this.form.productId
-          }
+        const data = await healthCheck({
+          type: this.form.type,
+          product_id: this.form.productId
         });
         this.checkResult = data;
       } catch (e) {
@@ -268,7 +325,7 @@ export default {
       };
       
       try {
-        await request.post('/api/assets/sync-extra', {
+        await syncExtra({
           type: this.form.type,
           product_id: this.form.productId
         });
@@ -284,11 +341,9 @@ export default {
       this.clearSyncTimer();
       this.syncTimer = setInterval(async () => {
         try {
-          const data = await request.get('/api/assets/sync-progress', {
-            params: {
-              type: this.form.type,
-              product_id: this.form.productId
-            }
+          const data = await getSyncProgress({
+            type: this.form.type,
+            product_id: this.form.productId
           });
           
           if (data) {
@@ -341,13 +396,28 @@ export default {
 
 .controls-form {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.filter-line {
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.path-line {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .path-item {
-  flex: 1;
-  min-width: 300px;
+  width: 100%;
+  margin-right: 0 !important;
+}
+
+.path-item /deep/ .el-form-item__content {
+  width: 100%;
 }
 
 .path-container {
@@ -357,6 +427,7 @@ export default {
   padding: 0 10px;
   border-radius: 4px;
   border: 1px dashed #dcdfe6;
+  width: 100%;
 }
 
 .path-label {

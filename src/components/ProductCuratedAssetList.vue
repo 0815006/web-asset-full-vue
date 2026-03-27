@@ -57,7 +57,7 @@ export default {
           this.curatedList = (res || []).map(item => ({
             ...item,
             ...(detailMap[item.fileId] || { fileName: `未知文件(${item.fileId})` })
-          })).filter(item => detailMap[item.fileId]).slice(0, 10); // 只显示存在的，且最多10条
+          })).filter(item => detailMap[item.fileId]); // 展示全部核心资产，不再控制条数
         } else {
           this.curatedList = [];
         }

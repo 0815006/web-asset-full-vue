@@ -37,3 +37,11 @@ export function initProductFolders(id) {
     method: 'post'
   })
 }
+
+export function initZoneFolders(type) {
+  return request({
+    url: '/products/init-zone-folders',
+    method: 'post',
+    data: { type }
+  })
+}

@@ -9,7 +9,7 @@
 </template>
 
 <script>
-import request from '@/utils/request'
+import { getAssetPreviewData } from '@/api/asset-node'
 import XMindViewer from '@hyjiacan/xmind-viewer'
 import G6 from '@antv/g6'
 
@@ -56,18 +56,17 @@ export default {
       this.loading = true;
       this.downloadProgress = 0;
       try {
-        const response = await request({
-          url: this.previewUrl,
-          method: 'get',
-          responseType: 'arraybuffer', // 改为 arraybuffer 以供 XMindViewer 解析
-          onDownloadProgress: (progressEvent) => {
+        const response = await getAssetPreviewData(
+          this.fileData.id,
+          { userId: localStorage.getItem('userId') },
+          (progressEvent) => {
             if (progressEvent.lengthComputable) {
               this.downloadProgress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
             } else {
               this.downloadProgress = Math.min(this.downloadProgress + 10, 90);
             }
           }
-        });
+        );
         
         const buffer = response; // request 拦截器中如果是 arraybuffer 会直接返回 data
         
