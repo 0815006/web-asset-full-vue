@@ -10,8 +10,8 @@
 
 <script>
 import { getAssetPreviewData } from '@/api/asset-node'
-import XMindViewer from '@hyjiacan/xmind-viewer'
-import G6 from '@antv/g6'
+import MindMap from 'simple-mind-map'
+import xmind from 'simple-mind-map/src/parse/xmind'
 
 export default {
   name: 'XmindViewer',
@@ -27,13 +27,16 @@ export default {
   },
   data() {
     return {
-      xmindViewer: null,
+      mindMap: null,
       loading: false,
-      downloadProgress: 0
+      downloadProgress: 0,
+      resizeObserver: null,
+      resizeTimer: null
     }
   },
   mounted() {
     this.initXmindViewer();
+    this.initResizeObserver();
   },
   beforeDestroy() {
     this.destroyXmindViewer();
@@ -45,6 +48,7 @@ export default {
           this.destroyXmindViewer();
           this.$nextTick(() => {
             this.initXmindViewer();
+            this.initResizeObserver();
           });
         }
       },
@@ -52,6 +56,26 @@ export default {
     }
   },
   methods: {
+    initResizeObserver() {
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+      }
+      this.resizeObserver = new ResizeObserver(() => {
+        // 使用 requestAnimationFrame 解决 ResizeObserver loop 报错
+        if (this.resizeTimer) {
+          cancelAnimationFrame(this.resizeTimer);
+        }
+        this.resizeTimer = requestAnimationFrame(() => {
+          if (this.mindMap) {
+            this.mindMap.resize();
+          }
+        });
+      });
+      const container = document.getElementById('xmind-container');
+      if (container) {
+        this.resizeObserver.observe(container);
+      }
+    },
     async initXmindViewer() {
       this.loading = true;
       this.downloadProgress = 0;
@@ -68,13 +92,19 @@ export default {
           }
         );
         
-        const buffer = response; // request 拦截器中如果是 arraybuffer 会直接返回 data
+        const buffer = response;
+        
+        // 解析 xmind 文件
+        const data = await xmind.parseXmindFile(buffer);
         
         const container = document.getElementById('xmind-container');
         if (container) {
           container.innerHTML = '';
-          // 使用本地离线渲染组件
-          this.xmindViewer = await XMindViewer.viewer.render(container, buffer, { G6 });
+          this.mindMap = new MindMap({
+            el: container,
+            data: data,
+            readonly: true
+          });
         }
       } catch (e) {
         console.error('XMind preview failed', e);
@@ -85,18 +115,23 @@ export default {
       }
     },
     destroyXmindViewer() {
-      if (this.xmindViewer) {
+      if (this.resizeTimer) {
+        cancelAnimationFrame(this.resizeTimer);
+        this.resizeTimer = null;
+      }
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+        this.resizeObserver = null;
+      }
+      if (this.mindMap) {
         try {
-          if (typeof this.xmindViewer.destroy === 'function') {
-            this.xmindViewer.destroy();
-          }
+          this.mindMap.destroy();
         } catch (e) {
-          console.warn('XMind destroy failed', e);
+          console.warn('MindMap destroy failed', e);
         }
-        this.xmindViewer = null;
+        this.mindMap = null;
       }
       
-      // 清空 XMind 容器
       const xmindContainer = document.getElementById('xmind-container');
       if (xmindContainer) {
         xmindContainer.innerHTML = '';

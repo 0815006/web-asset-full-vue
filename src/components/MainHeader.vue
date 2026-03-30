@@ -16,7 +16,7 @@
           </el-tabs>
         </div>
         
-        <div class="user-info-wrapper">
+        <div v-if="!isIframe" class="user-info-wrapper">
           <el-dropdown @command="handleCommand" trigger="click">
             <div class="user-info-content">
               <el-avatar size="small" icon="el-icon-user-solid"></el-avatar>
@@ -59,6 +59,9 @@ export default {
     realName() {
       const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
       return userInfo.realName || '未登录';
+    },
+    isIframe() {
+      return window.self !== window.top;
     },
     localActiveTab: {
       get() {
