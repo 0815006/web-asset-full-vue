@@ -205,6 +205,11 @@
       :visible.sync="searchResultVisible"
       :query="currentSearchQuery"
       :results="searchResults"
+      :total="searchTotal"
+      :loading="searchLoading"
+      :current-page="searchPage"
+      :page-size="searchPageSize"
+      @page-change="handleSearchPageChange"
       @item-click="handleSearchResultClick">
     </search-result-dialog>
   </div>
@@ -240,6 +245,10 @@ export default {
       searchResultVisible: false,
       currentSearchQuery: '',
       searchResults: [],
+      searchTotal: 0,
+      searchPage: 1,
+      searchPageSize: 10,
+      searchLoading: false,
       curatedAssets: [], // New data property for curated assets
       useRanking: [],    // New data property for use ranking
       
@@ -412,19 +421,27 @@ export default {
         }
       }
     },
-    async performSearch(query) {
+    async performSearch(query, page = 1) {
       if (!query) {
         this.$message.warning('请输入搜索关键字');
         return;
       }
       
-      this.loading = true;
+      this.searchLoading = true;
+      this.searchPage = page;
       try {
-        const res = await search({ keyword: query, productId: this.product.id });
+        const res = await search({ 
+          keyword: query, 
+          productId: this.product.id,
+          page: this.searchPage,
+          size: this.searchPageSize
+        });
         
         let results = [];
-        if (res && Array.isArray(res)) {
-          results = res.map(item => ({
+        let total = 0;
+        if (res && res.list) {
+          total = res.total;
+          results = res.list.map(item => ({
             id: parseInt(item.id),
             label: item.name,
             fileName: item.name,
@@ -442,14 +459,18 @@ export default {
         }
         
         this.searchResults = results;
+        this.searchTotal = total;
         this.currentSearchQuery = query;
         this.searchResultVisible = true;
       } catch (error) {
         console.error('Search failed:', error);
         this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
-        this.loading = false;
+        this.searchLoading = false;
       }
+    },
+    handleSearchPageChange(page) {
+      this.performSearch(this.currentSearchQuery, page);
     },
     showUploadDialog() {
       this.uploadDialogVisible = true;

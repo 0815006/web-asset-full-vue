@@ -54,6 +54,11 @@
       :visible.sync="searchResultVisible"
       :query="currentSearchQuery"
       :results="searchResults"
+      :total="searchTotal"
+      :loading="searchLoading"
+      :current-page="searchPage"
+      :page-size="searchPageSize"
+      @page-change="handleSearchPageChange"
       @item-click="handleFileItemClick">
     </search-result-dialog>
 
@@ -129,7 +134,12 @@ export default {
 
       searchResultVisible: false,
       currentSearchQuery: '',
+      currentSearchScope: 'global',
       searchResults: [],
+      searchTotal: 0,
+      searchPage: 1,
+      searchPageSize: 10,
+      searchLoading: false,
 
       defaultProps: {
         children: 'children',
@@ -374,21 +384,29 @@ export default {
       // 简单起见，重新获取所有数据
       this.fetchData();
     },
-    async performSearch(query, scope) {
+    async performSearch(query, scope, page = 1) {
       if (!query) {
         this.$message.warning('请输入搜索关键字');
         return;
       }
-      this.loading = true;
+      this.searchLoading = true;
+      this.searchPage = page;
       try {
-        const params = { keyword: query };
+        const params = { 
+          keyword: query,
+          page: this.searchPage,
+          size: this.searchPageSize
+        };
         if (scope === 'tech' || scope === 'mgmt') {
           params.zoneType = scope;
         }
         const res = await search(params);
         let results = [];
-        if (res && Array.isArray(res)) {
-          results = res.map(item => {
+        let total = 0;
+        
+        if (res && res.list) {
+          total = res.total;
+          results = res.list.map(item => {
             let zoneName = '未知区域';
             if (item.zone_type === 'tech') {
               zoneName = '测试技术及工艺专区';
@@ -415,14 +433,19 @@ export default {
           });
         }
         this.searchResults = results;
+        this.searchTotal = total;
         this.currentSearchQuery = query;
+        this.currentSearchScope = scope; // 记录搜索范围以便分页
         this.searchResultVisible = true;
       } catch (error) {
         console.error('Search failed:', error);
         this.$message.error('搜索失败，请检查网络或联系管理员');
       } finally {
-        this.loading = false;
+        this.searchLoading = false;
       }
+    },
+    handleSearchPageChange(page) {
+      this.performSearch(this.currentSearchQuery, this.currentSearchScope, page);
     },
     async handleFileItemClick(data) {
       if (!data || !data.id) {

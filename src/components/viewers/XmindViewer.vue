@@ -12,6 +12,8 @@
 import { getAssetPreviewData } from '@/api/asset-node'
 import MindMap from 'simple-mind-map'
 import xmind from 'simple-mind-map/src/parse/xmind'
+import JSZip from 'jszip'
+import xmlConvert from 'xml-js'
 
 export default {
   name: 'XmindViewer',
@@ -33,6 +35,11 @@ export default {
       resizeObserver: null,
       resizeTimer: null
     }
+  },
+  created() {
+    // 在组件创建时就注入全局依赖，确保解析引擎能找到它们
+    window.JSZip = JSZip;
+    window.xmlConvert = xmlConvert;
   },
   mounted() {
     this.initXmindViewer();
@@ -61,7 +68,6 @@ export default {
         this.resizeObserver.disconnect();
       }
       this.resizeObserver = new ResizeObserver(() => {
-        // 使用 requestAnimationFrame 解决 ResizeObserver loop 报错
         if (this.resizeTimer) {
           cancelAnimationFrame(this.resizeTimer);
         }
@@ -93,22 +99,45 @@ export default {
         );
         
         const buffer = response;
+        console.log('XMind file buffer received, size:', buffer.byteLength);
         
         // 解析 xmind 文件
-        const data = await xmind.parseXmindFile(buffer);
+        console.log('Starting XMind parsing...');
+        
+        // 针对旧版 XMind 解析逻辑的健壮性处理：
+        // 如果 simple-mind-map 内部报错，尝试手动解析或提供更友好的提示
+        let data;
+        try {
+          data = await xmind.parseXmindFile(buffer);
+        } catch (parseError) {
+          console.error('Internal parser error:', parseError);
+          if (parseError.message.includes('elements')) {
+            throw new Error('该 XMind 文件结构过于复杂或版本过旧，暂不支持预览。建议下载后使用 XMind 客户端查看。');
+          }
+          throw parseError;
+        }
+        
+        console.log('XMind parsed successfully:', data);
         
         const container = document.getElementById('xmind-container');
         if (container) {
           container.innerHTML = '';
+          console.log('Initializing MindMap instance...');
           this.mindMap = new MindMap({
             el: container,
             data: data,
             readonly: true
           });
+          console.log('MindMap initialized.');
         }
       } catch (e) {
-        console.error('XMind preview failed', e);
-        this.$message.error('XMind 预览失败，请检查文件格式或网络状态');
+        console.error('XMind preview detailed error:', e);
+        this.$message({
+          message: e.message || 'XMind 预览失败，请检查文件格式',
+          type: 'warning',
+          duration: 5000,
+          showClose: true
+        });
       } finally {
         this.loading = false;
         this.downloadProgress = 0;

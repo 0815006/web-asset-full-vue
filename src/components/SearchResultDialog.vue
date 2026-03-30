@@ -7,12 +7,12 @@
     top="5vh"
     append-to-body>
     
-    <div class="search-results-container">
-      <div class="search-summary" v-if="results.length > 0">
-        找到约 {{ results.length }} 条结果
+    <div class="search-results-container" v-loading="loading">
+      <div class="search-summary" v-if="total > 0">
+        找到约 {{ total }} 条结果
       </div>
 
-      <div v-if="results.length === 0" class="no-results">
+      <div v-if="results.length === 0 && !loading" class="no-results">
         <el-empty description="未找到相关内容，请尝试更换关键词"></el-empty>
       </div>
       
@@ -33,6 +33,17 @@
           <div class="result-context" v-html="formatContext(item.context, query)"></div>
         </div>
       </div>
+
+      <div class="pagination-container" v-if="total > pageSize">
+        <el-pagination
+          background
+          layout="total, prev, pager, next"
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total="total"
+          @current-change="handlePageChange">
+        </el-pagination>
+      </div>
     </div>
   </el-dialog>
 </template>
@@ -52,6 +63,22 @@ export default {
     results: {
       type: Array,
       default: () => []
+    },
+    total: {
+      type: Number,
+      default: 0
+    },
+    loading: {
+      type: Boolean,
+      default: false
+    },
+    currentPage: {
+      type: Number,
+      default: 1
+    },
+    pageSize: {
+      type: Number,
+      default: 10
     }
   },
   computed: {
@@ -103,6 +130,9 @@ export default {
     handleResultClick(item) {
       this.$emit('item-click', item);
       this.localVisible = false;
+    },
+    handlePageChange(page) {
+      this.$emit('page-change', page);
     }
   }
 }
@@ -220,6 +250,14 @@ export default {
   -webkit-line-clamp: 3; /* 最多显示3行摘要 */
   overflow: hidden;
   word-break: break-all;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  padding-top: 15px;
+  border-top: 1px solid #ebeef5;
 }
 </style>
 
