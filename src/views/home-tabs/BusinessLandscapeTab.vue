@@ -2,8 +2,8 @@
   <div class="tab-content">
     <div class="zone-header-actions">
       <el-radio-group v-model="zoneViewMode" size="medium">
-        <el-radio-button label="tech">测试技术与工艺专区</el-radio-button>
         <el-radio-button label="product">产品专区</el-radio-button>
+        <el-radio-button label="tech">测试技术与工艺专区</el-radio-button>
         <el-radio-button label="mgmt">测试管理专区</el-radio-button>
       </el-radio-group>
       
@@ -144,7 +144,7 @@ export default {
   },
   data() {
     return {
-      zoneViewMode: 'tech',
+      zoneViewMode: 'product',
       techSearchQuery: '',
       mgmtSearchQuery: '',
       viewMode: 'tile',
