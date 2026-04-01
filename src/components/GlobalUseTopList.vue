@@ -31,7 +31,8 @@ export default {
   methods: {
     async fetchGlobalUseTop() {
       try {
-        const res = await getGlobalUseTop();
+        // 请求 20 条数据，以便在过滤掉失效文件后仍能尽量保持 10 条显示
+        const res = await getGlobalUseTop({ size: 20 });
         const fileIds = (res || []).map(item => item.file_id);
         if (fileIds.length > 0) {
           const currentUser = JSON.parse(localStorage.getItem('userInfo') || '{}');

@@ -30,7 +30,8 @@ export default {
   methods: {
     async fetchGlobalStarTop() {
       try {
-        const res = await getGlobalStarTop(); // This returns { file_id, star_count }
+        // 请求 20 条数据，以便在过滤掉失效文件后仍能尽量保持 10 条显示
+        const res = await getGlobalStarTop({ size: 20 }); // This returns { file_id, star_count }
         const fileIds = (res || []).map(item => JSON.parse(JSON.stringify(item)).file_id);
 
         if (fileIds.length > 0) {

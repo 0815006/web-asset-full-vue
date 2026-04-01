@@ -1,5 +1,5 @@
 <template>
-  <div class="home-wrapper" v-loading="loading">
+  <div :class="['home-wrapper', { 'is-iframe': isInIframe }]" v-loading="loading">
     <!-- 顶部导航栏组件 -->
     <main-header :active-tab.sync="activeTab" />
 
@@ -156,6 +156,7 @@ export default {
       productFilter: 'all',
       isFirstLoad: true,
       loading: false,
+      isInIframe: window.self !== window.top,
       currentUser: JSON.parse(localStorage.getItem('userInfo') || '{}')
     }
   },
@@ -242,8 +243,12 @@ export default {
       if (file.productId && file.productId !== 0) {
         const product = this.products.find(p => p.id === file.productId);
         if (product) {
-          const isProductOwner = this.currentUser.realName === product.owner;
-          return isProductOwner;
+          if (product.ownerIds) {
+            const ownerIdList = String(product.ownerIds).split(',').map(id => id.trim());
+            return ownerIdList.includes(String(this.currentUser.id));
+          }
+          // Fallback to name comparison if ownerIds is missing
+          return this.currentUser.realName === product.ownerName;
         }
       }
 
@@ -543,5 +548,19 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
   min-height: calc(100vh - 120px);
+}
+
+/* iframe 模式优化 */
+.is-iframe .home-container {
+  max-width: 100%;
+  padding: 12px;
+  margin: 0;
+}
+
+.is-iframe .main-content {
+  padding: 15px;
+  box-shadow: none;
+  border: 1px solid #ebeef5;
+  min-height: calc(100vh - 100px);
 }
 </style>

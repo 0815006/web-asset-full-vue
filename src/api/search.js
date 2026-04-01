@@ -52,16 +52,18 @@ export function getHotKeywords(params) {
   })
 }
 
-export function getGlobalUseTop() {
+export function getGlobalUseTop(params) {
   return request({
     url: '/search/global-use-top',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 
-export function getGlobalStarTop() {
+export function getGlobalStarTop(params) {
   return request({
     url: '/search/global-star-top',
-    method: 'get'
+    method: 'get',
+    params
   })
 }

@@ -55,8 +55,8 @@
         <el-form-item label="业务领域" prop="domainName">
           <el-input v-model="productForm.domainName" placeholder="请输入业务领域"></el-input>
         </el-form-item>
-        <el-form-item label="负责人" prop="ownerId">
-          <el-select v-model="productForm.ownerId" placeholder="请选择负责人" style="width: 100%;" filterable>
+        <el-form-item label="负责人" prop="ownerIds">
+          <el-select v-model="productForm.ownerIds" placeholder="请选择负责人" style="width: 100%;" filterable multiple :multiple-limit="10">
             <el-option
               v-for="user in userList"
               :key="user.id"
@@ -101,14 +101,14 @@ export default {
         productCode: "",
         teamName: "",
         domainName: "",
-        ownerId: null,
+        ownerIds: [],
       },
       productRules: {
         productName: [{ required: true, message: "请输入产品名称", trigger: "blur" }],
         productCode: [{ required: true, message: "请输入产品英文简称", trigger: "blur" }],
         teamName: [{ required: true, message: "请输入所属团队", trigger: "blur" }],
         domainName: [{ required: true, message: "请输入业务领域", trigger: "blur" }],
-        ownerId: [{ required: true, message: "请选择负责人", trigger: "change" }],
+        ownerIds: [{ type: 'array', required: true, message: "请选择负责人", trigger: "change" }],
       },
       dialogLoading: false,
     };
@@ -165,7 +165,7 @@ export default {
         productCode: "",
         teamName: "",
         domainName: "",
-        ownerId: null,
+        ownerIds: [],
       };
       this.$nextTick(() => {
         this.$refs.productForm.clearValidate();
@@ -175,7 +175,9 @@ export default {
       this.dialogVisible = true;
       this.dialogTitle = "编辑产品";
       this.isEdit = true;
-      this.productForm = { ...row };
+      // 将逗号分隔的字符串转为数组
+      const ownerIds = row.ownerIds ? String(row.ownerIds).split(',').map(id => id.trim()).filter(id => id).map(id => isNaN(id) ? id : Number(id)) : [];
+      this.productForm = { ...row, ownerIds };
       this.$nextTick(() => {
         this.$refs.productForm.clearValidate();
       });
@@ -185,11 +187,17 @@ export default {
         if (valid) {
           this.dialogLoading = true;
           try {
+            // 将数组转为逗号分隔的字符串提交
+            const submitData = {
+              ...this.productForm,
+              ownerIds: this.productForm.ownerIds.join(',')
+            };
+            
             if (this.isEdit) {
-              await updateProduct(this.productForm.id, this.productForm);
+              await updateProduct(submitData.id, submitData);
               this.$message.success("产品信息更新成功");
             } else {
-              const res = await createProduct(this.productForm);
+              const res = await createProduct(submitData);
               this.$message.success("新产品创建成功");
               // 如果是新建，自动选中新建的产品
               if (res && res.id) {

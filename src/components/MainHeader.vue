@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="top-nav-bar">
-      <div class="nav-container">
+      <div :class="['nav-container', { 'is-iframe-mode': isIframe }]">
         <div class="logo-section" @click="goToHome('search-first')">
           <i class="el-icon-s-finance"></i>
           <span class="logo-text">测试资产库</span>
@@ -29,6 +29,8 @@
             </el-dropdown-menu>
           </el-dropdown>
         </div>
+        <!-- iframe 模式下的占位符，用于保持中间菜单居中 -->
+        <div v-else class="user-info-placeholder"></div>
       </div>
     </div>
     <change-password-dialog :visible.sync="showChangePasswordDialog"></change-password-dialog>
@@ -204,5 +206,15 @@ export default {
 
 .user-info-content:hover .username {
   color: #409EFF;
+}
+
+/* iframe 模式优化 */
+.nav-container.is-iframe-mode {
+  max-width: 100%;
+  padding: 0 15px;
+}
+
+.user-info-placeholder {
+  width: 150px; /* 与 logo-section 宽度一致，确保中间 tabs 居中 */
 }
 </style>

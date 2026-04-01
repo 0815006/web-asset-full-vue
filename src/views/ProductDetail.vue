@@ -301,9 +301,13 @@ export default {
   computed: {
     hasEditPermission() {
       const isSuperAdmin = this.currentUser && this.currentUser.roleType === 1;
-      // Assuming the user object from localStorage has a 'realName' property that matches product.owner
-      const isProductOwner = this.currentUser && this.product.owner && this.currentUser.realName === this.product.owner;
-      return isSuperAdmin || isProductOwner;
+      if (isSuperAdmin) return true;
+      
+      if (this.currentUser && this.product.ownerIds) {
+        const ownerIdList = String(this.product.ownerIds).split(',').map(id => id.trim());
+        return ownerIdList.includes(String(this.currentUser.id));
+      }
+      return false;
     }
   },
   created() {
@@ -347,6 +351,7 @@ export default {
               team: productData.teamName,
               domain: productData.domainName,
               owner: productData.ownerName || 'Unknown',
+              ownerIds: productData.ownerIds,
               assetCount: productData.assetCount,
               updateTime: productData.updatedAt ? productData.updatedAt.replace('T', ' ') : '',
               status: '活跃'
